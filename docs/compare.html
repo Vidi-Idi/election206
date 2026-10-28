@@ -23,6 +23,11 @@
 .stat .verdict { margin-top: 8px; color: var(--ink-2); }
 .stat table td, .stat table th { padding: 4px 6px; }
 .res td.c { text-align: center; font-variant-numeric: tabular-nums; border: 2px solid var(--surface); border-radius: 6px; }
+.summary { margin-bottom: 16px; border-inline-start: 4px solid var(--accent); }
+.summary h3 { font-size: 16px; margin: 0 0 8px; }
+.summary p { margin: 6px 0; }
+.summary ul { margin: 6px 0 0; padding-inline-start: 20px; color: var(--ink-2); }
+.summary li { margin: 4px 0; }
 .hollow { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink-2); display: inline-block; }
 .filled { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-2); display: inline-block; }
 .outline { width: 10px; height: 10px; border-radius: 3px; border: 2px solid var(--ink-2); display: inline-block; }
@@ -93,6 +98,7 @@
 
 <h2 style="margin:28px 0 4px">מבחנים סטטיסטיים</h2>
 <p class="note" style="margin:0 0 12px">אלה ספירות מלאות ולא מדגם, ולכן עם מאות אלפי קולות כמעט כל הבדל ייצא "מובהק". חשוב יותר להסתכל על גודל האפקט (V של קרמר, h של כהן). כמו כן, ההשוואה היא של סך הקולות ולא של אותם אנשים: היא לא אומרת מי עבר לאן.</p>
+<div id="summary"></div>
 <div class="stats" id="stats"></div>
 
 <details>
@@ -276,7 +282,8 @@ function dumbbell(hostId, rows, tipRows) {
   }
   rows.forEach(([label, a, b, color], i) => {
     const cy = m.t + rowH * (i + 0.5);
-    txt(svg, W - 4, cy + 4, label, "end").style.fill = css("--ink");
+    // the svg is laid out left-to-right; labels are Hebrew, so render them right-to-left
+    const lt = txt(svg, W - 4, cy + 4, label, "start"); lt.setAttribute("direction", "rtl"); lt.style.fill = css("--ink");
     el("line", { x1: x(a), x2: x(b), y1: cy, y2: cy, stroke: color, "stroke-width": 2 }, svg);
     el("circle", { cx: x(a), cy, r: 5, fill: css("--surface"), stroke: color, "stroke-width": 2 }, svg);
     el("circle", { cx: x(b), cy, r: 6, fill: color, stroke: css("--surface"), "stroke-width": 2 }, svg);
@@ -424,18 +431,20 @@ function drawStats(sel) {
   const tests = BLOCS.map((k, i) => ({ k, ...propTest(c22[i], n1, c26[i], n2) }));
 
   // city vs national: difference in differences, and percentile among cities
-  let didHtml = `<p class="what">בחרו יישוב כדי להשוות את השינוי בו לשינוי הארצי.</p>`;
+  let didHtml = `<p class="what">בחרו יישוב כדי להשוות את השינוי בו לשינוי הארצי.</p>`, didData = null;
   if (state.city != null) {
     const nat = BLOCS.map((k, i) => { const a = shares(NATIONAL.y22)[i], b = shares(NATIONAL.y26)[i]; return b - a; });
     const pool = CITIES.filter(c => c.y22 && c.y26 && base(c.y22) >= 500 && base(c.y26) >= 500);
-    const rows = BLOCS.map((k, i) => {
+    didData = BLOCS.map((k, i) => {
       const t = tests[i], did = t.diff - nat[i];
       const se = Math.sqrt(t.p1 * (1 - t.p1) / n1 + t.p2 * (1 - t.p2) / n2);
-      const z = did / se;
       const changes = pool.map(c => shares(c.y26)[i] - shares(c.y22)[i]);
-      const rank = changes.filter(v => v < t.diff).length / changes.length;
-      return `<tr><td><i class="sw" style="background:${catColor(k)}"></i> ${NAME[k]}</td><td class="n">${pp(t.diff)}</td><td class="n">${pp(nat[i])}</td>
-        <td class="n">${pp(did)}</td><td class="n">${fmtP(twoSidedP(z)).replace("p ", "")}</td><td class="n">${Math.round(rank * 100)}%</td></tr>`;
+      return { nat: nat[i], did, p: twoSidedP(did / se), rank: changes.filter(v => v < t.diff).length / changes.length };
+    });
+    const rows = BLOCS.map((k, i) => {
+      const t = tests[i], { nat: natI, did, p, rank } = didData[i];
+      return `<tr><td><i class="sw" style="background:${catColor(k)}"></i> ${NAME[k]}</td><td class="n">${pp(t.diff)}</td><td class="n">${pp(natI)}</td>
+        <td class="n">${pp(did)}</td><td class="n">${fmtP(p).replace("p ", "")}</td><td class="n">${Math.round(rank * 100)}%</td></tr>`;
     }).join("");
     didHtml = `<p class="what">האם השינוי ביישוב שונה מהשינוי הארצי? "אחוזון" = כמה מהיישובים (${fmt(pool.length)} עם 500 קולות לפחות) רשמו שינוי קטן יותר.</p>
       <div class="tablewrap"><table><thead><tr><th>גוש</th><th class="n">ביישוב</th><th class="n">בארץ</th><th class="n">הפרש</th><th class="n">p</th><th class="n">אחוזון</th></tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -452,6 +461,7 @@ function drawStats(sel) {
     ${["2022", "2026"].map((yr, i) => `<tr><td>${yr}</td>${chi.resid[i].map(r => `<td class="c" style="background:${resColor(r)}">${signed(r, 1)}</td>`).join("")}</tr>`).join("")}
     </tbody></table>`;
 
+  drawSummary(sel, chi, tests, didData, pedersen, swing);
   document.getElementById("stats").innerHTML = `
     <section class="card stat">
       <h3>מבחן חי בריבוע (χ²) לאי־תלות</h3>
@@ -486,6 +496,53 @@ function drawStats(sel) {
     </section>`;
 }
 
+// ---------- plain-language summary ----------
+function drawSummary(sel, chi, tests, didData, pedersen, swing) {
+  const where = state.city == null ? "בכל הארץ" : "ב" + sel.name;
+  const ofWhat = state.mode === "all" ? "מבעלי זכות הבחירה" : "מהקולות";
+  const n = v => ltr(Math.abs(v * 100).toFixed(1));
+  const move = t => Math.abs(t.diff) < 0.0005 ? `נשאר${t.k === "arab" ? "ו" : "ה"} ללא שינוי (${pct(t.p2)})`
+    : `${t.diff > 0 ? (t.k === "arab" ? "עלו" : "עלתה") : (t.k === "arab" ? "ירדו" : "ירדה")} ב־${n(t.diff)} נקודות, מ־${pct(t.p1)} ל־${pct(t.p2)}`;
+  const label = { coalition: "הקואליציה", opposition: "האופוזיציה", arab: "המפלגות הערביות" };
+  const headline = tests.map(t => `${label[t.k]} ${move(t)}`).join("; ");
+
+  // is the change real, and is it big?
+  const sizeWords = { "זניח": "זניח", "קטן": "קטן", "בינוני": "בינוני", "גדול": "גדול" };
+  const big = tests.reduce((a, t) => Math.abs(t.h) > Math.abs(a.h) ? t : a);
+  let real;
+  if (chi.p >= 0.05) real = `ההבדלים בין 2022 ל־2026 קטנים מספיק כדי שיכלו לנבוע ממקרה, ולכן <b>אי אפשר לקבוע שהייתה תזוזה אמיתית</b> ${where}.`;
+  else real = `ההבדל בין 2022 ל־2026 <b>אינו מקרי</b> (המבחנים מובהקים). גודל השינוי, במונחים סטטיסטיים, <b>${sizeWords[effV(chi.V)]}</b>`
+    + (effV(chi.V) === "זניח" || effV(chi.V) === "קטן"
+      ? `: התמונה הכללית דומה לזו של 2022, והשינוי הבולט ביותר הוא ב${label[big.k] === "הקואליציה" ? "קואליציה" : label[big.k] === "האופוזיציה" ? "אופוזיציה" : "מפלגות הערביות"}.`
+      : ": מדובר בשינוי ממשי בהרכב ההצבעה.");
+
+  let vsNat = "";
+  if (didData) {
+    const t = tests[0], d = didData[0];
+    const rel = Math.abs(d.did) < 0.005 ? "דומה לשינוי בכל הארץ"
+      : (t.diff - d.nat) > 0 ? "טוב יותר לקואליציה מהשינוי בכל הארץ" : "רע יותר לקואליציה מהשינוי בכל הארץ";
+    const share = t.diff < 0 ? `${Math.round(d.rank * 100)}% מהיישובים רשמו ירידה חדה יותר לקואליציה`
+      : `${Math.round((1 - d.rank) * 100)}% מהיישובים רשמו עלייה גדולה יותר לקואליציה`;
+    vsNat = `<p><b>לעומת כל הארץ:</b> בכל הארץ הקואליציה ${d.nat >= 0 ? "עלתה" : "ירדה"} ב־${n(d.nat)} נקודות, כך שהשינוי ${where} ${rel}`
+      + `${Math.abs(d.did) >= 0.005 ? ` (הפרש של ${n(d.did)} נקודות${d.p >= 0.05 ? ", שיכול לנבוע ממקרה" : ""})` : ""}. ${share}.</p>`;
+  }
+
+  document.getElementById("summary").innerHTML = `<section class="card summary">
+    <h3>השורה התחתונה</h3>
+    <p>${where}, כאחוז ${ofWhat}: ${headline}.</p>
+    <p>${real}</p>
+    ${vsNat}
+    <p>בסך הכול לפחות ${pct(pedersen, 0)} מהקולות עברו בין מפלגות (נטו), והתזוזה בין הגושים היא ${swing >= 0 ? "לכיוון הקואליציה" : "לכיוון האופוזיציה"}.</p>
+    <ul>
+      <li><b>"מובהק"</b> פירושו שסביר מאוד שההבדל אינו מקרי. עם הרבה מצביעים גם הבדל קטן מאוד יוצא מובהק, ולכן חשוב לבדוק גם את גודל השינוי.</li>
+      <li><b>מבחן חי בריבוע</b> בודק אם החלוקה בין הגושים כולה השתנתה. <b>V של קרמר</b> אומר כמה גדול השינוי: מתחת ל־0.1 זניח, עד 0.3 קטן, עד 0.5 בינוני, ומעל זה גדול.</li>
+      <li><b>מבחן z</b> בודק כל גוש לחוד. <b>רווח הסמך</b> הוא הטווח שבו כנראה נמצא השינוי האמיתי, ו<b>h של כהן</b> הוא גודל השינוי (מתחת ל־0.2 זניח).</li>
+      <li><b>יישוב מול הארץ</b> בודק אם היישוב התנהג אחרת מהמגמה הארצית, ו<b>האחוזון</b> מראה כמה השינוי בו חריג ביחס ליישובים אחרים.</li>
+      <li><b>מדד פדרסן</b> הוא כמה מהקולות "זזו" בין המפלגות (0 = אין שינוי, 100 = הכול השתנה). <b>סווינג באטלר</b> הוא התזוזה הממוצעת בין שני הגושים הגדולים.</li>
+      <li>ההשוואה היא של סך הקולות ולא של אותם אנשים: היא לא אומרת מי עבר לאן.</li>
+    </ul></section>`;
+}
+
 // ---------- KPIs ----------
 function drawKpis(sel) {
   const a = sel.y22, b = sel.y26;
@@ -509,7 +566,7 @@ function render() {
   const warn = document.getElementById("warn");
   if (!sel.y22 || !sel.y26) {
     warn.innerHTML = `<div class="warn">ל${sel.name} אין תוצאות ב${!sel.y22 ? "־2022" : "־2026"}, ולכן אי אפשר להשוות.</div>`;
-    for (const id of ["kpis", "blocDumbbell", "deltaBars", "expected", "partyDumbbell", "stats"]) document.getElementById(id).innerHTML = "";
+    for (const id of ["kpis", "summary", "blocDumbbell", "deltaBars", "expected", "partyDumbbell", "stats"]) document.getElementById(id).innerHTML = "";
     drawScatter(sel); return;
   }
   const cover = sel.y26.bzb / sel.full26;
