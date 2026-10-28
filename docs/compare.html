@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>השוואה 2022–2026</title>
+<link rel="stylesheet" href="style.css">
+<style>
+:root { --nonvoters: #52514e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --nonvoters: #c3c2b7; } }
+:root[data-theme="dark"] { --nonvoters: #c3c2b7; }
+.kpi .v { font-size: 20px; }
+.kpi .v small { font-size: 13px; color: var(--ink-2); font-weight: 500; }
+.delta { font-weight: 600; }
+.warn { background: var(--surface); border: 1px solid var(--border); border-inline-start: 4px solid #fab219;
+        border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; color: var(--ink-2); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+.stat { min-width: 0; }
+.stat .tablewrap { max-height: none; border: 0; }
+.stat h3 { font-size: 14px; margin: 0 0 2px; }
+.stat .what { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+.stat .big { font-size: 22px; font-weight: 600; }
+.stat .verdict { margin-top: 8px; color: var(--ink-2); }
+.stat table td, .stat table th { padding: 4px 6px; }
+.res td.c { text-align: center; font-variant-numeric: tabular-nums; border: 2px solid var(--surface); border-radius: 6px; }
+.hollow { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink-2); display: inline-block; }
+.filled { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-2); display: inline-block; }
+.outline { width: 10px; height: 10px; border-radius: 3px; border: 2px solid var(--ink-2); display: inline-block; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>השוואה בין 2022 ל־2026</h1>
+  <p class="sub">שינויים בהצבעה לגושים ולמפלגות בכל יישוב, מנורמלים לגידול במספר בעלי זכות הבחירה, עם מבחנים סטטיסטיים.</p>
+  <button class="theme" id="theme" title="החלפת ערכת צבעים">◐</button>
+</header>
+<nav class="tabs"><a href="index.html">הצבעה לפי שעות</a><a href="compare.html" class="on">השוואה ל־2022</a></nav>
+
+<div class="filters">
+  <label>יישוב
+    <input type="search" id="city" list="cities" placeholder="כל הארץ">
+    <datalist id="cities"></datalist>
+  </label>
+  <label>בסיס החישוב
+    <div class="seg" id="mode"><button data-v="voters" class="on">רק המצביעים</button><button data-v="all">כולל מי שלא הצביע</button></div>
+  </label>
+  <button id="reset">כל הארץ</button>
+  <div class="selection" id="selection"></div>
+</div>
+
+<div id="warn"></div>
+<div class="kpis" id="kpis"></div>
+
+<div class="grid">
+  <section class="card">
+    <div class="card-head"><h2>חלוקת הקולות לפי גוש</h2></div>
+    <div class="legend"><span><i class="hollow"></i>2022</span><span><i class="filled"></i>2026</span></div>
+    <div class="chart" id="blocDumbbell"></div>
+    <p class="note" id="baseNote"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>שינוי בנקודות אחוז, מול כל הארץ</h2></div>
+    <div class="legend"><span><i class="sw" style="background:var(--muted)"></i>שינוי ביישוב</span><span><i class="sw line" style="background:var(--ink)"></i>שינוי בכל הארץ</span></div>
+    <div class="chart" id="deltaBars"></div>
+    <p class="note">כמה נקודות אחוז הגוש הרוויח או הפסיד. הקו השחור מראה את השינוי הארצי, להשוואה.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>קולות בפועל מול הצפי לפי גידול האוכלוסייה</h2></div>
+    <div class="legend"><span><i class="outline"></i>צפי: חלוקת 2022 על בסיס 2026</span><span><i class="sw" style="background:var(--ink-2)"></i>בפועל ב־2026</span></div>
+    <div class="chart" id="expected"></div>
+    <p class="note" id="expNote"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>מפלגות (לפי המיפוי בין הבחירות)</h2></div>
+    <div class="legend"><span><i class="hollow"></i>2022</span><span><i class="filled"></i>2026</span></div>
+    <div class="chart" id="partyDumbbell"></div>
+  </section>
+
+  <section class="card wide">
+    <div class="card-head">
+      <h2>כל היישובים: 2022 מול 2026</h2>
+      <div class="seg" id="scBloc"><button data-v="coalition" class="on">קואליציה</button><button data-v="opposition">אופוזיציה</button><button data-v="arab">ערביות</button><button data-v="turnout">אחוז הצבעה</button></div>
+    </div>
+    <div class="legend" id="scLegend"></div>
+    <div class="chart" id="scatter"></div>
+    <p class="note">כל נקודה היא יישוב (לפחות 500 קולות כשרים בכל שנה), וגודלה לפי מספר המצביעים. יישוב מעל הקו האלכסוני השתפר ב־2026, ומתחתיו ירד.</p>
+  </section>
+</div>
+
+<h2 style="margin:28px 0 4px">מבחנים סטטיסטיים</h2>
+<p class="note" style="margin:0 0 12px">אלה ספירות מלאות ולא מדגם, ולכן עם מאות אלפי קולות כמעט כל הבדל ייצא "מובהק". חשוב יותר להסתכל על גודל האפקט (V של קרמר, h של כהן). כמו כן, ההשוואה היא של סך הקולות ולא של אותם אנשים: היא לא אומרת מי עבר לאן.</p>
+<div class="stats" id="stats"></div>
+
+<details>
+  <summary>איך זה מחושב</summary>
+  <ul>
+    <li><b>מיפוי מפלגות:</b> הציונות הדתית (ט) של 2022 מושווית לסכום של הציונות הדתית (ט) ועוצמה יהודית (ב) ב־2026. המחנה הממלכתי (כן) מושווה לישר (דרך), יש עתיד (פה) לביחד (רק), העבודה (אמת) ומרצ (מרצ) לדמוקרטים (אמת), חד״ש-תע״ל (ום) לרשימה המשותפת (ודם). בל״ד (ד) נספרת בגוש הערבי ב־2022 ולא רצה ב־2026. כל שאר המפלגות נספרות כ"אחרות".</li>
+    <li><b>נרמול לגידול האוכלוסייה:</b> ההשוואה היא באחוזים ולא במספרים מוחלטים: אחוז מהקולות הכשרים, או אחוז מבעלי זכות הבחירה כשבוחרים "כולל מי שלא הצביע". "הצפי" הוא החלוקה של 2022 על הבסיס של 2026, כלומר כמה קולות היו מקבלים אילו רק האוכלוסייה הייתה גדלה.</li>
+    <li><b>כולל מי שלא הצביע:</b> הבסיס הוא כל בעלי זכות הבחירה. "לא הצביעו" הם בעלי זכות פחות מצביעים, והקולות הפסולים נספרים עם "אחרות".</li>
+    <li><b>מעטפות חיצוניות:</b> ב־2022 כ־463 אלף קולות במעטפות חיצוניות (חיילים, בתי חולים ועוד) לא שויכו ליישוב. ב־2026 אין שורה כזו, ולכן היא הוצאה. בשתי השנים אחוז ההצבעה ביישוב לא כולל את מצביעי המעטפות.</li>
+    <li><b>חוסרים ב־2026:</b> בקובץ התוצאות של 2026 חסרות 848 קלפיות. ביישוב שחלק מהקלפיות שלו חסרות מוצגת אזהרה, והחישוב מתבסס על הקלפיות שנספרו.</li>
+    <li><b>מבחן חי בריבוע:</b> טבלה של שנה × קטגוריה (גושים, ואם נבחר גם "לא הצביעו"). השארית המתוקננת בכל משבצת מראה אילו קטגוריות "אחראיות" להבדל: מעל 2 בערך מוחלט נחשב בולט.</li>
+    <li><b>מבחן z לשני שיעורים:</b> לכל גוש בנפרד, עם רווח סמך של 95% להפרש.</li>
+    <li><b>יישוב מול הארץ:</b> הפרש ההפרשים (השינוי ביישוב פחות השינוי הארצי) עם מבחן z, ובנוסף כמה מהיישובים (עם 500 קולות לפחות) רשמו שינוי קטן יותר.</li>
+    <li><b>מדד פדרסן:</b> כמה מהקולות "זזו" בין המפלגות נטו (חצי מסכום השינויים המוחלטים). <b>סווינג באטלר:</b> ממוצע הרווח של הקואליציה וההפסד של האופוזיציה.</li>
+  </ul>
+</details>
+</main>
+<div class="tip" id="tip"></div>
+
+<script src="compare_data.js"></script>
+<script>
+"use strict";
+const D = window.COMPARE_DATA;
+const P = D.parties;
+const BLOCS = ["coalition", "opposition", "arab"];
+const NAME = { coalition: "קואליציה", opposition: "אופוזיציה", arab: "מפלגות ערביות", other: "אחרות", nonvoters: "לא הצביעו" };
+const fmt = n => Math.round(n).toLocaleString("he-IL");
+const pct = (x, d = 1) => (x == null || !isFinite(x)) ? "—" : (x * 100).toFixed(d) + "%";
+// LRI…PDI keeps the sign on the left of the number inside Hebrew text
+const ltr = s => `\u2066${s}\u2069`;
+function signed(v, d) {
+  const a = Math.abs(v).toFixed(d);
+  return ltr(+a === 0 ? (0).toFixed(d) : (v > 0 ? "+" : "−") + a);
+}
+const pp = (x, d = 1) => (x == null || !isFinite(x)) ? "—" : signed(x * 100, d);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ---------- data ----------
+function yearRec(r) {
+  if (!r) return null;
+  const [bzb, voters, invalid, valid, parties] = r;
+  const bl = { coalition: 0, opposition: 0, arab: 0 };
+  parties.forEach((v, k) => bl[P[k].bloc] += v);
+  return { bzb, voters, invalid, valid, parties, ...bl, other: valid - bl.coalition - bl.opposition - bl.arab };
+}
+const CITIES = D.cities.map(([code, name, a, b, full26]) => ({ code, name, y22: yearRec(a), y26: yearRec(b), full26 }));
+function sumRecs(recs) {
+  const s = { bzb: 0, voters: 0, invalid: 0, valid: 0, coalition: 0, opposition: 0, arab: 0, other: 0, parties: P.map(() => 0) };
+  for (const r of recs) {
+    for (const k of ["bzb", "voters", "invalid", "valid", "coalition", "opposition", "arab", "other"]) s[k] += r[k];
+    r.parties.forEach((v, k) => s.parties[k] += v);
+  }
+  return s;
+}
+const NATIONAL = {
+  name: "כל הארץ",
+  y22: sumRecs(CITIES.filter(c => c.y22).map(c => c.y22)),
+  y26: sumRecs(CITIES.filter(c => c.y26).map(c => c.y26)),
+  full26: CITIES.reduce((s, c) => s + (c.y26 ? c.full26 : 0), 0),
+};
+
+const state = { city: null, mode: "voters", scBloc: "coalition" };
+
+// categories and counts for the chosen base
+function cats() { return state.mode === "all" ? ["coalition", "opposition", "arab", "other", "nonvoters"] : ["coalition", "opposition", "arab", "other"]; }
+function counts(y) {
+  if (state.mode === "all") return [y.coalition, y.opposition, y.arab, y.other + y.invalid, y.bzb - y.voters];
+  return [y.coalition, y.opposition, y.arab, y.other];
+}
+const base = y => state.mode === "all" ? y.bzb : y.valid;
+const shares = y => counts(y).map(v => v / base(y));
+
+// ---------- statistics ----------
+function logGamma(x) {
+  const g = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let y = x, t = x + 5.5; t -= (x + 0.5) * Math.log(t);
+  let s = 1.000000000190015; for (const c of g) s += c / ++y;
+  return -t + Math.log(2.5066282746310005 * s / x);
+}
+// regularized upper incomplete gamma Q(a, x)
+function gammaQ(a, x) {
+  if (x <= 0) return 1;
+  const gln = logGamma(a);
+  if (x < a + 1) {
+    let sum = 1 / a, del = sum, ap = a;
+    for (let n = 0; n < 1000; n++) { ap++; del *= x / ap; sum += del; if (Math.abs(del) < Math.abs(sum) * 1e-15) break; }
+    return 1 - sum * Math.exp(-x + a * Math.log(x) - gln);
+  }
+  let b = x + 1 - a, c = 1e300, d = 1 / b, h = d;
+  for (let i = 1; i < 1000; i++) {
+    const an = -i * (i - a); b += 2;
+    d = an * d + b; if (Math.abs(d) < 1e-300) d = 1e-300;
+    c = b + an / c; if (Math.abs(c) < 1e-300) c = 1e-300;
+    d = 1 / d; const del = d * c; h *= del; if (Math.abs(del - 1) < 1e-15) break;
+  }
+  return Math.exp(-x + a * Math.log(x) - gln) * h;
+}
+const chiSqP = (x, df) => gammaQ(df / 2, x / 2);
+function erfc(x) {
+  const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+  const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+    t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+  return x >= 0 ? r : 2 - r;
+}
+const twoSidedP = z => erfc(Math.abs(z) / Math.SQRT2);
+function fmtP(p) {
+  if (!isFinite(p)) return "—";
+  if (p < 0.0001) return ltr("p < 0.0001");
+  return ltr("p = " + (p < 0.01 ? p.toFixed(4) : p.toFixed(3)));
+}
+const sig = p => p < 0.05 ? "מובהק סטטיסטית" : "לא מובהק סטטיסטית";
+
+function chiSquare(rows) {
+  const k = rows[0].length, rowT = rows.map(r => r.reduce((a, b) => a + b, 0));
+  const colT = [...Array(k)].map((_, j) => rows[0][j] + rows[1][j]), N = rowT[0] + rowT[1];
+  let chi = 0; const resid = rows.map(() => new Array(k).fill(0));
+  rows.forEach((r, i) => r.forEach((o, j) => {
+    const e = rowT[i] * colT[j] / N;
+    if (e > 0) {
+      chi += (o - e) ** 2 / e;
+      resid[i][j] = (o - e) / Math.sqrt(e * (1 - rowT[i] / N) * (1 - colT[j] / N));
+    }
+  }));
+  const df = k - 1;
+  return { chi, df, p: chiSqP(chi, df), V: Math.sqrt(chi / N), N, resid };
+}
+function propTest(x1, n1, x2, n2) {
+  const p1 = x1 / n1, p2 = x2 / n2, pool = (x1 + x2) / (n1 + n2);
+  const z = (p2 - p1) / Math.sqrt(pool * (1 - pool) * (1 / n1 + 1 / n2));
+  const se = Math.sqrt(p1 * (1 - p1) / n1 + p2 * (1 - p2) / n2);
+  const h = 2 * Math.asin(Math.sqrt(p2)) - 2 * Math.asin(Math.sqrt(p1));
+  return { p1, p2, diff: p2 - p1, lo: p2 - p1 - 1.96 * se, hi: p2 - p1 + 1.96 * se, z, p: twoSidedP(z), h };
+}
+const effV = v => v < 0.1 ? "זניח" : v < 0.3 ? "קטן" : v < 0.5 ? "בינוני" : "גדול";
+const effH = h => Math.abs(h) < 0.2 ? "זניח" : Math.abs(h) < 0.5 ? "קטן" : Math.abs(h) < 0.8 ? "בינוני" : "גדול";
+
+// ---------- tooltip & svg helpers ----------
+const tip = document.getElementById("tip");
+function showTip(ev, title, rows) {
+  tip.innerHTML = `<div class="t">${title}</div>` + rows.map(([l, v, c]) =>
+    `<div class="r"><span>${c ? `<i class="sw" style="background:${c}"></i>` : ""}${l}</span><span>${v}</span></div>`).join("");
+  tip.style.display = "block";
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+}
+const hideTip = () => tip.style.display = "none";
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, x, y, s, anchor = "start", strong = false) {
+  const t = el("text", { x, y, "text-anchor": anchor }, parent); t.textContent = s;
+  if (strong) { t.style.fill = css("--ink"); t.style.fontWeight = 600; }
+  return t;
+}
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+const catColor = k => css("--" + k);
+
+// Horizontal dumbbell: rows of [label, a(2022), b(2026), color]. Labels on the right (RTL), scale left-to-right.
+function dumbbell(hostId, rows, tipRows) {
+  const host = document.getElementById(hostId); host.innerHTML = "";
+  const W = host.clientWidth, rowH = 30, m = { l: 12, r: Math.min(190, W * 0.38), t: 8, b: 24 };
+  const H = m.t + m.b + rows.length * rowH;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  const xmax = niceMax(Math.max(...rows.flatMap(r => [r[1], r[2]])) * 1.08);
+  const x = v => m.l + v / xmax * (W - m.l - m.r - 56);
+  for (let t = 0; t <= 4; t++) {
+    const v = xmax * t / 4;
+    el("line", { x1: x(v), x2: x(v), y1: m.t, y2: H - m.b, stroke: t ? css("--grid") : css("--axis") }, svg);
+    txt(svg, x(v), H - 6, Math.round(v * 100) + "%", "middle");
+  }
+  rows.forEach(([label, a, b, color], i) => {
+    const cy = m.t + rowH * (i + 0.5);
+    txt(svg, W - 4, cy + 4, label, "end").style.fill = css("--ink");
+    el("line", { x1: x(a), x2: x(b), y1: cy, y2: cy, stroke: color, "stroke-width": 2 }, svg);
+    el("circle", { cx: x(a), cy, r: 5, fill: css("--surface"), stroke: color, "stroke-width": 2 }, svg);
+    el("circle", { cx: x(b), cy, r: 6, fill: color, stroke: css("--surface"), "stroke-width": 2 }, svg);
+    txt(svg, Math.max(x(a), x(b)) + 10, cy + 4, `${pp(b - a)}`, "start", true);
+    const hit = el("rect", { x: 0, y: cy - rowH / 2, width: W, height: rowH, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", ev => showTip(ev, label, tipRows ? tipRows(i) : [["2022", pct(a)], ["2026", pct(b)], ["שינוי", pp(b - a) + " נק׳"]]));
+    hit.addEventListener("mouseleave", hideTip);
+  });
+}
+
+// ---------- charts ----------
+function drawDelta(sel) {
+  const host = document.getElementById("deltaBars"); host.innerHTML = "";
+  const ks = cats(), a = shares(sel.y22), b = shares(sel.y26), na = shares(NATIONAL.y22), nb = shares(NATIONAL.y26);
+  const d = ks.map((_, i) => b[i] - a[i]), nd = ks.map((_, i) => nb[i] - na[i]);
+  const W = host.clientWidth, rowH = 34, m = { l: 12, r: 110, t: 8, b: 24 }, H = m.t + m.b + ks.length * rowH;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  const lim = niceMax(Math.max(0.01, ...d.map(Math.abs), ...nd.map(Math.abs)) * 1.15);
+  const x = v => m.l + (v + lim) / (2 * lim) * (W - m.l - m.r);
+  [-lim, -lim / 2, 0, lim / 2, lim].forEach(v => {
+    el("line", { x1: x(v), x2: x(v), y1: m.t, y2: H - m.b, stroke: v === 0 ? css("--axis") : css("--grid") }, svg);
+    txt(svg, x(v), H - 6, pp(v, 0), "middle");
+  });
+  ks.forEach((k, i) => {
+    const cy = m.t + rowH * (i + 0.5), x0 = x(0), x1 = x(d[i]), bh = 14;
+    txt(svg, W - 4, cy + 4, NAME[k], "end").style.fill = css("--ink");
+    const left = Math.min(x0, x1), w = Math.abs(x1 - x0);
+    if (w > 0) {
+      const r = Math.min(4, w);
+      const path = d[i] >= 0
+        ? `M${x0},${cy - bh / 2}H${x1 - r}q${r},0 ${r},${r}V${cy + bh / 2 - r}q0,${r} -${r},${r}H${x0}Z`
+        : `M${x0},${cy - bh / 2}H${x1 + r}q-${r},0 -${r},${r}V${cy + bh / 2 - r}q0,${r} ${r},${r}H${x0}Z`;
+      el("path", { d: path, fill: catColor(k) }, svg);
+    }
+    el("line", { x1: x(nd[i]), x2: x(nd[i]), y1: cy - 11, y2: cy + 11, stroke: css("--ink"), "stroke-width": 2 }, svg);
+    txt(svg, d[i] >= 0 ? Math.max(x1, x(nd[i])) + 6 : Math.min(x1, x(nd[i])) - 6, cy + 4, pp(d[i]), d[i] >= 0 ? "start" : "end", true);
+    const hit = el("rect", { x: 0, y: cy - rowH / 2, width: W, height: rowH, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", ev => showTip(ev, NAME[k], [
+      [sel.name, pp(d[i]) + " נק׳", catColor(k)], ["כל הארץ", pp(nd[i]) + " נק׳"], ["הפרש מהארץ", pp(d[i] - nd[i]) + " נק׳"]]));
+    hit.addEventListener("mouseleave", hideTip);
+  });
+}
+
+function drawExpected(sel) {
+  const host = document.getElementById("expected"); host.innerHTML = "";
+  const ks = cats(), a = shares(sel.y22), act = counts(sel.y26), B = base(sel.y26);
+  const exp = a.map(s => s * B);
+  document.getElementById("expNote").textContent = state.mode === "all"
+    ? `בעלי זכות הבחירה (בקלפיות שנספרו) עברו מ־${fmt(sel.y22.bzb)} ל־${fmt(sel.y26.bzb)}. הצפי = חלוקת 2022 כפול ${fmt(B)}.`
+    : `הקולות הכשרים עברו מ־${fmt(sel.y22.valid)} ל־${fmt(sel.y26.valid)}. הצפי = חלוקת 2022 כפול ${fmt(B)}.`;
+  const W = host.clientWidth, H = 260, m = { l: 52, r: 8, t: 16, b: 26 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  const ymax = niceMax(Math.max(...exp, ...act) * 1.05), y = v => H - m.b - v / ymax * (H - m.t - m.b);
+  for (let t = 0; t <= 4; t++) {
+    const v = ymax * t / 4;
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: t ? css("--grid") : css("--axis") }, svg);
+    txt(svg, m.l - 6, y(v) + 4, v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1000 ? fmt(v / 1000) + "K" : fmt(v), "end");
+  }
+  const band = (W - m.l - m.r) / ks.length, bw = Math.min(28, band * 0.32);
+  ks.forEach((k, i) => {
+    const cx = m.l + band * (i + 0.5), c = catColor(k);
+    // order matches RTL reading: expected on the right, actual on the left
+    const bar = (x0, v, filled) => {
+      const top = y(v), h = y(0) - top, r = Math.min(4, h);
+      el("path", { d: `M${x0},${y(0)}V${top + r}q0,-${r} ${r},-${r}H${x0 + bw - r}q${r},0 ${r},${r}V${y(0)}Z`,
+        fill: filled ? c : "none", stroke: filled ? "none" : c, "stroke-width": 2 }, svg);
+    };
+    bar(cx + 1, exp[i], false); bar(cx - bw - 1, act[i], true);
+    txt(svg, cx, H - 8, NAME[k], "middle");
+    const diff = act[i] / exp[i] - 1;
+    if (isFinite(diff)) txt(svg, cx, Math.min(y(exp[i]), y(act[i])) - 4, signed(diff * 100, 0) + "%", "middle", true);
+    const hit = el("rect", { x: cx - band / 2, y: m.t, width: band, height: H - m.t - m.b, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", ev => showTip(ev, NAME[k], [["צפי", fmt(exp[i])], ["בפועל", fmt(act[i]), c], ["הפרש", fmt(act[i] - exp[i])]]));
+    hit.addEventListener("mouseleave", hideTip);
+  });
+}
+
+function drawScatter(sel) {
+  const host = document.getElementById("scatter"); host.innerHTML = "";
+  const k = state.scBloc;
+  const val = y => k === "turnout" ? y.voters / y.bzb : y[k] / y.valid;
+  const pts = CITIES.filter(c => c.y22 && c.y26 && c.y22.valid >= 500 && c.y26.valid >= 500 && c.y22.bzb > 0 && c.y26.bzb > 0)
+    .map(c => ({ c, x: val(c.y22), y: val(c.y26) }));
+  const color = k === "turnout" ? css("--accent") : catColor(k);
+  document.getElementById("scLegend").innerHTML =
+    `<span><i class="sw" style="background:${color};opacity:.45"></i>יישוב</span>` +
+    (state.city != null ? `<span><i class="sw" style="background:${css("--ink")}"></i>${sel.name}</span>` : "") +
+    `<span><i class="sw line" style="background:var(--axis)"></i>ללא שינוי</span>`;
+  const W = host.clientWidth, H = Math.min(440, Math.max(300, W * 0.45)), m = { l: 48, r: 12, t: 12, b: 38 };
+  const lo = k === "turnout" ? 0.2 : 0, hi = 1;
+  const sx = v => m.l + (v - lo) / (hi - lo) * (W - m.l - m.r), sy = v => H - m.b - (v - lo) / (hi - lo) * (H - m.t - m.b);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  for (let t = 0; t <= 5; t++) {
+    const v = lo + (hi - lo) * t / 5;
+    el("line", { x1: m.l, x2: W - m.r, y1: sy(v), y2: sy(v), stroke: t ? css("--grid") : css("--axis") }, svg);
+    el("line", { x1: sx(v), x2: sx(v), y1: m.t, y2: H - m.b, stroke: t ? css("--grid") : css("--axis") }, svg);
+    txt(svg, m.l - 6, sy(v) + 4, Math.round(v * 100) + "%", "end");
+    txt(svg, sx(v), H - m.b + 16, Math.round(v * 100) + "%", "middle");
+  }
+  txt(svg, (m.l + W - m.r) / 2, H - 4, "2022", "middle");
+  txt(svg, m.l + 4, m.t + 10, "2026", "start");
+  el("line", { x1: sx(lo), y1: sy(lo), x2: sx(hi), y2: sy(hi), stroke: css("--axis"), "stroke-width": 1.5 }, svg);
+  const maxV = Math.max(...pts.map(p => p.c.y26.voters));
+  const rad = p => 2.5 + 9 * Math.sqrt(p.c.y26.voters / maxV);
+  const g = el("g", {}, svg);
+  pts.sort((a, b) => b.c.y26.voters - a.c.y26.voters).forEach(p => {
+    const isSel = state.city != null && CITIES[state.city] === p.c;
+    if (isSel) return;
+    el("circle", { cx: sx(p.x), cy: sy(p.y), r: rad(p), fill: color, "fill-opacity": 0.45, stroke: css("--surface"), "stroke-width": 1 }, g);
+  });
+  const selP = state.city != null && pts.find(p => p.c === CITIES[state.city]);
+  if (selP) {
+    el("circle", { cx: sx(selP.x), cy: sy(selP.y), r: Math.max(7, rad(selP)), fill: css("--ink"), stroke: css("--surface"), "stroke-width": 2 }, svg);
+    txt(svg, sx(selP.x) + Math.max(7, rad(selP)) + 6, sy(selP.y) + 4, selP.c.name, "start", true);
+  }
+  // hover: nearest city
+  const hit = el("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent" }, svg);
+  const label = k === "turnout" ? "אחוז הצבעה" : NAME[k];
+  hit.addEventListener("mousemove", ev => {
+    const r = svg.getBoundingClientRect(), mx = (ev.clientX - r.left) * W / r.width, my = (ev.clientY - r.top) * H / r.height;
+    let best = null, bd = 400;
+    for (const p of pts) { const d = (sx(p.x) - mx) ** 2 + (sy(p.y) - my) ** 2; if (d < bd) { bd = d; best = p; } }
+    if (!best) return hideTip();
+    showTip(ev, best.c.name, [[`${label} 2022`, pct(best.x)], [`${label} 2026`, pct(best.y)], ["שינוי", pp(best.y - best.x) + " נק׳"],
+      ["מצביעים 2026", fmt(best.c.y26.voters)]]);
+  });
+  hit.addEventListener("mouseleave", hideTip);
+  hit.addEventListener("click", ev => {
+    const r = svg.getBoundingClientRect(), mx = (ev.clientX - r.left) * W / r.width, my = (ev.clientY - r.top) * H / r.height;
+    let best = null, bd = 400;
+    for (const p of pts) { const d = (sx(p.x) - mx) ** 2 + (sy(p.y) - my) ** 2; if (d < bd) { bd = d; best = p; } }
+    if (best) setCity(CITIES.indexOf(best.c));
+  });
+}
+
+// ---------- statistics panel ----------
+function resColor(r) {
+  const t = Math.max(-1, Math.min(1, r / 10));
+  return `color-mix(in oklab, var(${t >= 0 ? "--pos" : "--neg"}) ${Math.round(Math.abs(t) * 70)}%, var(--mid))`;
+}
+function drawStats(sel) {
+  const ks = cats(), c22 = counts(sel.y22), c26 = counts(sel.y26);
+  const chi = chiSquare([c22, c26]);
+  const n1 = base(sel.y22), n2 = base(sel.y26);
+  const tests = BLOCS.map((k, i) => ({ k, ...propTest(c22[i], n1, c26[i], n2) }));
+
+  // city vs national: difference in differences, and percentile among cities
+  let didHtml = `<p class="what">בחרו יישוב כדי להשוות את השינוי בו לשינוי הארצי.</p>`;
+  if (state.city != null) {
+    const nat = BLOCS.map((k, i) => { const a = shares(NATIONAL.y22)[i], b = shares(NATIONAL.y26)[i]; return b - a; });
+    const pool = CITIES.filter(c => c.y22 && c.y26 && base(c.y22) >= 500 && base(c.y26) >= 500);
+    const rows = BLOCS.map((k, i) => {
+      const t = tests[i], did = t.diff - nat[i];
+      const se = Math.sqrt(t.p1 * (1 - t.p1) / n1 + t.p2 * (1 - t.p2) / n2);
+      const z = did / se;
+      const changes = pool.map(c => shares(c.y26)[i] - shares(c.y22)[i]);
+      const rank = changes.filter(v => v < t.diff).length / changes.length;
+      return `<tr><td><i class="sw" style="background:${catColor(k)}"></i> ${NAME[k]}</td><td class="n">${pp(t.diff)}</td><td class="n">${pp(nat[i])}</td>
+        <td class="n">${pp(did)}</td><td class="n">${fmtP(twoSidedP(z)).replace("p ", "")}</td><td class="n">${Math.round(rank * 100)}%</td></tr>`;
+    }).join("");
+    didHtml = `<p class="what">האם השינוי ביישוב שונה מהשינוי הארצי? "אחוזון" = כמה מהיישובים (${fmt(pool.length)} עם 500 קולות לפחות) רשמו שינוי קטן יותר.</p>
+      <div class="tablewrap"><table><thead><tr><th>גוש</th><th class="n">ביישוב</th><th class="n">בארץ</th><th class="n">הפרש</th><th class="n">p</th><th class="n">אחוזון</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  // Pedersen volatility over mapped parties + other, and Butler swing
+  const ps22 = [...sel.y22.parties, sel.y22.other].map(v => v / sel.y22.valid);
+  const ps26 = [...sel.y26.parties, sel.y26.other].map(v => v / sel.y26.valid);
+  const pedersen = ps22.reduce((s, v, i) => s + Math.abs(ps26[i] - v), 0) / 2;
+  const s22 = BLOCS.map(k => sel.y22[k] / sel.y22.valid), s26 = BLOCS.map(k => sel.y26[k] / sel.y26.valid);
+  const swing = ((s26[0] - s22[0]) - (s26[1] - s22[1])) / 2;
+
+  const resTable = `<table class="res"><thead><tr><th></th>${ks.map(k => `<th class="n" style="text-align:center">${NAME[k]}</th>`).join("")}</tr></thead><tbody>
+    ${["2022", "2026"].map((yr, i) => `<tr><td>${yr}</td>${chi.resid[i].map(r => `<td class="c" style="background:${resColor(r)}">${signed(r, 1)}</td>`).join("")}</tr>`).join("")}
+    </tbody></table>`;
+
+  document.getElementById("stats").innerHTML = `
+    <section class="card stat">
+      <h3>מבחן חי בריבוע (χ²) לאי־תלות</h3>
+      <p class="what">האם חלוקת ה${state.mode === "all" ? "בעלי זכות" : "קולות"} בין ${ks.length} הקטגוריות שונה בין 2022 ל־2026?</p>
+      <div class="big">χ² = ${fmt(chi.chi)}</div>
+      <div>דרגות חופש ${chi.df} · ${fmtP(chi.p)} · ${ltr("N = " + fmt(chi.N))}</div>
+      <div>V של קרמר = <b>${chi.V.toFixed(3)}</b> (אפקט ${effV(chi.V)})</div>
+      <p class="verdict">${sig(chi.p)}. ${chi.p < 0.05 && chi.V < 0.1 ? "ההבדל אמיתי אבל קטן; המובהקות נובעת בעיקר מהגודל של N." : chi.p < 0.05 ? "החלוקה השתנתה באופן ממשי." : "אין ראיה לשינוי בחלוקה."}</p>
+      <p class="what" style="margin-top:10px">שאריות מתוקננות: כחול = יותר מהצפוי באותה שנה, אדום = פחות. מעל 2 בערך מוחלט נחשב בולט.</p>
+      <div class="tablewrap" style="max-height:none;border:0">${resTable}</div>
+    </section>
+    <section class="card stat">
+      <h3>מבחן z להפרש בין שני שיעורים</h3>
+      <p class="what">לכל גוש בנפרד: האם חלקו ${state.mode === "all" ? "מבעלי זכות הבחירה" : "מהקולות הכשרים"} השתנה? כולל רווח סמך של 95%.</p>
+      <div class="tablewrap"><table><thead><tr><th>גוש</th><th class="n">2022</th><th class="n">2026</th><th class="n">שינוי (נק׳)</th><th class="n">רווח סמך 95%</th><th class="n">p</th><th class="n">h של כהן</th></tr></thead><tbody>
+      ${tests.map(t => `<tr><td><i class="sw" style="background:${catColor(t.k)}"></i> ${NAME[t.k]}</td><td class="n">${pct(t.p1)}</td><td class="n">${pct(t.p2)}</td>
+        <td class="n"><b>${pp(t.diff)}</b></td><td class="n">${ltr(pp(t.lo) + " – " + pp(t.hi))}</td><td class="n">${fmtP(t.p).replace("p ", "")}</td>
+        <td class="n">${signed(t.h, 2)} <span class="imp">(${effH(t.h)})</span></td></tr>`).join("")}
+      </tbody></table></div>
+    </section>
+    <section class="card stat">
+      <h3>${state.city != null ? sel.name : "יישוב"} מול כל הארץ</h3>
+      ${didHtml}
+    </section>
+    <section class="card stat">
+      <h3>מדדי תנודתיות</h3>
+      <p class="what">מבוססים על הקולות הכשרים בלבד.</p>
+      <div>מדד פדרסן: <span class="big">${(pedersen * 100).toFixed(1)}</span> <span class="imp">מתוך 100</span></div>
+      <p class="verdict">לפחות ${pct(pedersen)} מהקולות "זזו" נטו בין המפלגות (לפי המיפוי בין הבחירות).</p>
+      <div style="margin-top:10px">סווינג באטלר: <span class="big">${pp(swing)}</span> <span class="imp">נק׳</span></div>
+      <p class="verdict">${swing >= 0 ? "תזוזה לכיוון הקואליציה" : "תזוזה לכיוון האופוזיציה"}: ממוצע הרווח של גוש אחד וההפסד של השני.</p>
+    </section>`;
+}
+
+// ---------- KPIs ----------
+function drawKpis(sel) {
+  const a = sel.y22, b = sel.y26;
+  const growth = sel.full26 / a.bzb - 1;
+  const t22 = a.voters / a.bzb, t26 = b.voters / b.bzb;
+  const s = (y, k) => y[k] / base(y);
+  const item = (k, v22, v26, d, dl) => `<div class="kpi"><div class="k">${k}</div>
+    <div class="v"><small>${v22} ←</small> ${v26}</div><div class="d"><span class="delta">${d}</span> ${dl}</div></div>`;
+  document.getElementById("kpis").innerHTML = [
+    item("בעלי זכות בחירה", fmt(a.bzb), fmt(sel.full26), ltr(signed(growth * 100, 1) + "%"), "גידול"),
+    item("אחוז הצבעה", pct(t22), pct(t26), pp(t26 - t22), "נק׳"),
+    ...BLOCS.map(k => item(NAME[k], pct(s(a, k)), pct(s(b, k)), pp(s(b, k) - s(a, k)), "נק׳")),
+  ].join("");
+}
+
+// ---------- render ----------
+function current() { return state.city == null ? NATIONAL : CITIES[state.city]; }
+function render() {
+  const sel = current();
+  document.getElementById("selection").innerHTML = `מוצג: <b>${sel.name}</b>`;
+  const warn = document.getElementById("warn");
+  if (!sel.y22 || !sel.y26) {
+    warn.innerHTML = `<div class="warn">ל${sel.name} אין תוצאות ב${!sel.y22 ? "־2022" : "־2026"}, ולכן אי אפשר להשוות.</div>`;
+    for (const id of ["kpis", "blocDumbbell", "deltaBars", "expected", "partyDumbbell", "stats"]) document.getElementById(id).innerHTML = "";
+    drawScatter(sel); return;
+  }
+  const cover = sel.y26.bzb / sel.full26;
+  warn.innerHTML = cover < 0.98
+    ? `<div class="warn">בקובץ התוצאות של 2026 חסרות חלק מהקלפיות ב${sel.name}: נספרו ${pct(cover, 0)} מבעלי זכות הבחירה. ההשוואה מבוססת על הקלפיות שנספרו.</div>` : "";
+  drawKpis(sel);
+  const ks = cats(), a = shares(sel.y22), b = shares(sel.y26);
+  dumbbell("blocDumbbell", ks.map((k, i) => [NAME[k], a[i], b[i], catColor(k)]), i => [
+    ["2022", `${pct(a[i])} · ${fmt(counts(sel.y22)[i])}`], ["2026", `${pct(b[i])} · ${fmt(counts(sel.y26)[i])}`], ["שינוי", pp(b[i] - a[i]) + " נק׳"]]);
+  document.getElementById("baseNote").textContent = state.mode === "all"
+    ? "אחוז מכלל בעלי זכות הבחירה. הקולות הפסולים נכללים ב\"אחרות\"." : "אחוז מהקולות הכשרים.";
+  const pr = P.map((p, k) => [p.name, sel.y22.parties[k] / sel.y22.valid, sel.y26.parties[k] / sel.y26.valid, catColor(p.bloc)]);
+  pr.push(["אחרות", sel.y22.other / sel.y22.valid, sel.y26.other / sel.y26.valid, catColor("other")]);
+  dumbbell("partyDumbbell", pr);
+  drawDelta(sel); drawExpected(sel); drawScatter(sel); drawStats(sel);
+}
+
+// ---------- controls ----------
+const cityInput = document.getElementById("city");
+document.getElementById("cities").innerHTML = CITIES.map(c => `<option value="${c.name}">`).join("");
+function setCity(ci) { state.city = ci; cityInput.value = ci == null ? "" : CITIES[ci].name; render(); }
+cityInput.addEventListener("change", () => {
+  const v = cityInput.value.trim(), ci = CITIES.findIndex(c => c.name === v);
+  if (!v) setCity(null); else if (ci >= 0) setCity(ci);
+});
+cityInput.addEventListener("input", () => { if (!cityInput.value) setCity(null); });
+document.getElementById("reset").addEventListener("click", () => setCity(null));
+function seg(id, key) {
+  const g = document.getElementById(id);
+  g.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    g.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    state[key] = b.dataset.v; render();
+  });
+}
+seg("mode", "mode"); seg("scBloc", "scBloc");
+document.getElementById("theme").addEventListener("click", () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("theme", root.dataset.theme); } catch (e) {}
+  render();
+});
+try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(render, 150); });
+render();
+</script>
+</body>
+</html>
