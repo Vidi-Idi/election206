@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>הצבעה לפי שעות – בחירות 2026</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --wash: rgba(11,11,11,0.04);
+  --coalition: #2a78d6;
+  --opposition: #eb6834;
+  --arab: #1baf7a;
+  --other: #b5b3ab;
+  --national: #898781;
+  --pos: #2a78d6;
+  --neg: #e34948;
+  --mid: #f0efec;
+  --accent: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --wash: rgba(255,255,255,0.05);
+    --coalition: #3987e5;
+    --opposition: #d95926;
+    --arab: #199e70;
+    --other: #5f5e5a;
+    --pos: #3987e5;
+    --neg: #e66767;
+    --mid: #383835;
+    --accent: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255,255,255,0.10);
+  --wash: rgba(255,255,255,0.05);
+  --coalition: #3987e5;
+  --opposition: #d95926;
+  --arab: #199e70;
+  --other: #5f5e5a;
+  --pos: #3987e5;
+  --neg: #e66767;
+  --mid: #383835;
+  --accent: #3987e5;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+}
+main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 24px; margin: 0 0 4px; font-weight: 650; }
+h2 { font-size: 16px; margin: 0; font-weight: 600; }
+.sub { color: var(--ink-2); margin: 0 0 20px; }
+.note { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
+.filters {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: end;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 16px; position: sticky; top: 0; z-index: 5;
+}
+.filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-2); }
+input, select, button {
+  font: inherit; color: var(--ink); background: var(--page);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; min-height: 34px;
+}
+input[type=search] { width: 200px; }
+button { cursor: pointer; }
+button:hover, select:hover { background: var(--wash); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; min-height: 30px; padding: 4px 10px; background: transparent; color: var(--ink-2); }
+.seg button.on { background: var(--wash); color: var(--ink); font-weight: 600; }
+.selection { font-size: 13px; color: var(--ink-2); margin-inline-start: auto; align-self: center; }
+.selection b { color: var(--ink); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+.kpi .k { font-size: 12px; color: var(--ink-2); }
+.kpi .v { font-size: 26px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+.kpi .d { font-size: 12px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px; min-width: 0;
+}
+.card.wide { grid-column: 1 / -1; }
+@media (max-width: 700px) { .filters { position: static; } input[type=search] { width: 100%; } .filters label { flex: 1 1 140px; } }
+.card-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin: 4px 0 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.sw.line { height: 2px; width: 14px; border-radius: 1px; }
+svg { display: block; width: 100%; overflow: visible; direction: ltr; }
+svg text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.chart { position: relative; }
+canvas { display: block; width: 100%; }
+.tip {
+  position: fixed; pointer-events: none; z-index: 20; display: none;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  min-width: 140px; max-width: 260px;
+}
+.tip .t { font-weight: 600; margin-bottom: 4px; }
+.tip .r { display: flex; justify-content: space-between; gap: 12px; }
+.tip .r span:first-child { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.tablewrap { overflow: auto; max-height: 520px; border-top: 1px solid var(--grid); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 6px 8px; text-align: start; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+td.n, th.n { text-align: end; font-variant-numeric: tabular-nums; }
+thead th { position: sticky; top: 0; background: var(--surface); color: var(--ink-2); font-weight: 600; font-size: 12px; z-index: 1; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--ink); }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover td { background: var(--wash); }
+tr.group td { font-weight: 600; }
+tr.sep td { border-top: 2px solid var(--grid); }
+.heat td.c { text-align: center; font-variant-numeric: tabular-nums; border: 2px solid var(--surface); border-radius: 6px; }
+.scale { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); flex-wrap: wrap; }
+.scale .bar { width: 160px; height: 10px; border-radius: 3px;
+  background: linear-gradient(to left, var(--pos), var(--mid), var(--neg)); }
+.imp { color: var(--muted); }
+.empty { color: var(--muted); padding: 24px 0; text-align: center; }
+details { margin-top: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+details summary { cursor: pointer; font-weight: 600; }
+details p, details li { color: var(--ink-2); }
+.theme { position: absolute; inset-inline-end: 0; top: 0; font-size: 18px; width: 38px; }
+header { position: relative; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>מתי הצביעו? – בחירות 2026</h1>
+  <p class="sub">אחוזי הצבעה לפי שעה בכל קלפי, משולבים בתוצאות הקלפי. הערכה של מתי הצביעו מצביעי כל מפלגה וכל גוש.</p>
+  <button class="theme" id="theme" title="החלפת ערכת צבעים">◐</button>
+</header>
+
+<div class="filters">
+  <label>יישוב
+    <input type="search" id="city" list="cities" placeholder="כל הארץ">
+    <datalist id="cities"></datalist>
+  </label>
+  <label>קלפי
+    <select id="box" disabled><option value="">כל הקלפיות</option></select>
+  </label>
+  <label>אופי הקלפי (הגוש המוביל)
+    <select id="lean">
+      <option value="">הכול</option>
+      <option value="coalition">רוב קואליציוני</option>
+      <option value="opposition">רוב אופוזיציוני</option>
+      <option value="arab">רוב למפלגות הערביות</option>
+    </select>
+  </label>
+  <button id="reset">איפוס</button>
+  <div class="selection" id="selection"></div>
+</div>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="grid">
+  <section class="card">
+    <div class="card-head"><h2>אחוז הצבעה מצטבר לפי שעה</h2></div>
+    <div class="legend" id="lineLegend"></div>
+    <div class="chart" id="lineChart"></div>
+    <p class="note">אחוז מבעלי זכות הבחירה שכבר הצביעו בכל שעה.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>מי הצביע בכל חלון זמן</h2>
+      <div class="seg" id="barMode"><button data-v="rate" class="on">קולות לשעה</button><button data-v="share">הרכב %</button></div>
+    </div>
+    <div class="legend" id="barLegend"></div>
+    <div class="chart" id="barChart"></div>
+    <p class="note">הערכה לפי השיטה היחסית: קולות כל קלפי מחולקים לחלונות הזמן לפי קצב ההצבעה בה.</p>
+  </section>
+
+  <section class="card wide">
+    <div class="card-head">
+      <h2>מתי הצביעו מצביעי כל מפלגה</h2>
+      <div class="seg" id="method"><button data-v="prop" class="on">שיטה יחסית</button><button data-v="reg">רגרסיה אקולוגית</button></div>
+    </div>
+    <div class="scale"><span>מעט מהממוצע</span><span class="bar"></span><span>יותר מהממוצע</span>
+      <span class="note" style="margin:0 8px">צבע = יחס לכלל המצביעים באותו חלון זמן</span></div>
+    <div class="tablewrap" style="max-height:none;margin-top:8px"><table class="heat" id="heat"></table></div>
+    <p class="note" id="methodNote"></p>
+  </section>
+
+  <section class="card wide">
+    <div class="card-head">
+      <h2>כל קלפי: כוח הגוש מול קצב ההצבעה</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="seg" id="scX"><button data-v="coalition" class="on">קואליציה</button><button data-v="opposition">אופוזיציה</button><button data-v="arab">ערביות</button></div>
+        <div class="seg" id="scY"><button data-v="0">09:00</button><button data-v="1" class="on">12:00</button><button data-v="2">16:00</button><button data-v="3">18:00</button><button data-v="4">20:00</button></div>
+      </div>
+    </div>
+    <div class="legend" id="scLegend"></div>
+    <div class="chart" id="scatter"></div>
+    <p class="note" id="scNote"></p>
+  </section>
+
+  <section class="card wide">
+    <div class="card-head">
+      <h2>יישובים</h2>
+      <input type="search" id="citySearch" placeholder="חיפוש יישוב">
+    </div>
+    <div class="tablewrap"><table id="cityTable"></table></div>
+    <p class="note">לחיצה על שורה מסננת את כל הדשבורד ליישוב. האחוזים בעמודות השעות הם אחוז מהמצביעים בסוף היום שכבר הצביעו באותה שעה.</p>
+  </section>
+
+  <section class="card wide">
+    <div class="card-head">
+      <h2 id="boxTitle">קלפיות</h2>
+      <input type="search" id="boxSearch" placeholder="חיפוש מספר קלפי">
+    </div>
+    <div class="tablewrap"><table id="boxTable"></table></div>
+    <p class="note">ערך באפור = הוערך (הקלפי לא דיווחה סמוך לשעה הזו) לפי חציון הקלפיות ביישוב.</p>
+  </section>
+</div>
+
+<details>
+  <summary>איך זה מחושב</summary>
+  <ul>
+    <li><b>חיבור הקבצים:</b> הקלפיות מחוברות לפי סמל יישוב + מספר ברזל. 848 קלפיות שמופיעות בקובצי ההצבעה חסרות בקובץ התוצאות; הן נכללות באחוזי ההצבעה אך לא בחישובי המפלגות.</li>
+    <li><b>שעת הדיווח האמיתית:</b> לכל דיווח יש שעת עדכון, ולעיתים קלפי בקובץ של 18:00 דיווחה לאחרונה ב־12:11. לכן כל דיווח מטופל כנקודה (שעת עדכון, מספר מצביעים), והערכים לשעות העגולות מחושבים באינטרפולציה בין 07:00 (אפס), הדיווחים, וספירת המצביעים הסופית בקובץ התוצאות.</li>
+    <li><b>חוסרים:</b> קלפי שלא דיווחה בטווח של 75 דקות מהשעה מקבלת את חציון היישוב (אחוז מהמצביעים הסופיים), בתוך הגבולות של הדיווחים שלה עצמה. בבוקר זה נפוץ: ב־09:00 כ־4,100 קלפיות, ב־12:00 כ־3,800.</li>
+    <li><b>השיטה היחסית:</b> אם עד 09:00 הצביעו בקלפי 14% מהמצביעים של סוף היום, מניחים ש־14% מהקולות של כל מפלגה בקלפי ניתנו עד 09:00. זו ההנחה היחידה האפשרית ברמת קלפי בודדת, והיא מניחה שבתוך הקלפי מצביעי כל המפלגות הצביעו באותו קצב.</li>
+    <li><b>רגרסיה אקולוגית:</b> בודקת על פני כל הקלפיות שבסינון האם קלפיות שבהן מפלגה חזקה מצביעות מוקדם או מאוחר, ומעריכה את חלק מצביעי כל מפלגה בכל חלון זמן (ריבועים פחותים לא שליליים, עם כיווץ קל לכיוון הממוצע כדי לייצב מפלגות קטנות). היא יכולה לחשוף הבדלים שהשיטה היחסית "מוחקת", אבל היא הערכה סטטיסטית ורגישה לרעש, במיוחד למפלגות קטנות או לסינון צר. נדרשות לפחות 60 קלפיות בלי ערכים משוערים.</li>
+    <li><b>"מדגם ארצי"</b> בקובצי ההצבעה (למשל 55.7% ב־16:00) אינו סכום הקלפיות, ולכן לא נעשה בו שימוש. הנתונים כאן הם סכום הקלפיות בפועל.</li>
+    <li>מפלגות שאינן ברשימת הגושים מוצגות כ"אחרות" בלבד.</li>
+  </ul>
+</details>
+</main>
+<div class="tip" id="tip"></div>
+
+<script src="data.js"></script>
+<script>
+"use strict";
+const D = window.ELECTION_DATA;
+const HOURS = D.meta.hours;                       // [9,12,16,18,20]
+const POINTS = [7, ...HOURS, 22];                 // cumulative curve x-values
+const WINDOWS = POINTS.slice(0, -1).map((h, i) => [h, POINTS[i + 1]]);
+// LRI…PDI keeps "07:00–09:00" left-to-right inside Hebrew text
+const WLABEL = WINDOWS.map(([a, b]) => `\u2066${pad(a)}–${pad(b)}\u2069`);
+const PARTIES = D.meta.parties;
+const BLOCS = [
+  { key: "coalition", name: "קואליציה" },
+  { key: "opposition", name: "אופוזיציה" },
+  { key: "arab", name: "מפלגות ערביות" },
+];
+const BLOC_NAME = Object.fromEntries(BLOCS.map(b => [b.key, b.name]));
+BLOC_NAME.other = "אחרות";
+const STACK = ["coalition", "opposition", "arab", "other"];
+const CITY = D.cities.map(([code, name]) => ({ code, name }));
+const fmt = n => Math.round(n).toLocaleString("he-IL");
+const pct = (x, d = 1) => (x == null || !isFinite(x)) ? "—" : (x * 100).toFixed(d) + "%";
+function pad(h) { return String(h).padStart(2, "0") + ":00"; }
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ---------- box records ----------
+const BOXES = D.boxes.map(([c, box, bzb, final, cum, imp, valid, votes], i) => {
+  const curve = [0, ...cum, final];
+  const b = { i, c, box, bzb, final, curve, imp, valid, votes };
+  if (votes) {
+    const bl = { coalition: 0, opposition: 0, arab: 0 };
+    votes.forEach((v, k) => bl[PARTIES[k].bloc] += v);
+    bl.other = valid - bl.coalition - bl.opposition - bl.arab;
+    b.blocs = bl;
+    b.invalid = final - valid;
+    b.lean = BLOCS.map(x => x.key).reduce((a, k) => bl[k] > bl[a] ? k : a, "coalition");
+  }
+  return b;
+});
+const byCity = CITY.map(() => []);
+BOXES.forEach(b => byCity[b.c].push(b));
+
+// ---------- state ----------
+const state = { city: null, box: null, lean: "", barMode: "rate", method: "prop", scX: "coalition", scY: 1,
+                citySort: { key: "voters", dir: -1 }, citySearch: "", boxSearch: "" };
+
+function selected() {
+  let bs = state.city == null ? BOXES : byCity[state.city];
+  if (state.box != null) bs = [BOXES[state.box]];
+  if (state.lean) bs = bs.filter(b => b.lean === state.lean);
+  return bs;
+}
+
+// ---------- aggregation ----------
+function aggregate(bs) {
+  const a = { n: bs.length, bzb: 0, final: 0, curve: POINTS.map(() => 0), nRes: 0,
+              resFinal: 0, win: WINDOWS.map(() => 0),
+              party: PARTIES.map(() => ({ total: 0, win: WINDOWS.map(() => 0) })),
+              bloc: Object.fromEntries(STACK.map(k => [k, { total: 0, win: WINDOWS.map(() => 0) }])) };
+  for (const b of bs) {
+    a.bzb += b.bzb; a.final += b.final;
+    b.curve.forEach((v, k) => a.curve[k] += v);
+    if (!b.votes) continue;
+    a.nRes++; a.resFinal += b.final;
+    for (let w = 0; w < WINDOWS.length; w++) {
+      const share = (b.curve[w + 1] - b.curve[w]) / b.final;
+      a.win[w] += b.final * share;
+      b.votes.forEach((v, k) => a.party[k].win[w] += v * share);
+      for (const k of STACK) a.bloc[k].win[w] += b.blocs[k] * share;
+    }
+    b.votes.forEach((v, k) => a.party[k].total += v);
+    for (const k of STACK) a.bloc[k].total += b.blocs[k];
+  }
+  return a;
+}
+const NATIONAL = aggregate(BOXES);
+
+// ---------- ecological regression (non-negative least squares) ----------
+function nnls(G, c, iters = 3000) {
+  const k = c.length, x = new Array(k).fill(0);
+  for (let it = 0; it < iters; it++) {
+    let moved = 0;
+    for (let j = 0; j < k; j++) {
+      if (G[j][j] <= 0) continue;
+      let g = c[j];
+      for (let m = 0; m < k; m++) g -= G[j][m] * x[m];
+      const nx = Math.max(0, x[j] + g / G[j][j]);
+      moved = Math.max(moved, Math.abs(nx - x[j])); x[j] = nx;
+    }
+    if (moved < 1e-7) break;
+  }
+  return x;
+}
+// columns: given groups + other parties + invalid. Returns per-column fraction of its voters in each window.
+// A mild ridge pulls each estimate toward the all-voters share, so collinear or thin columns don't swing to 0.
+const RIDGE = 0.1;
+function regress(bs, columnsOf, nCols) {
+  const rows = bs.filter(b => b.votes && b.imp === 0);
+  if (rows.length < 60) return { ok: false, n: rows.length };
+  const k = nCols, G = [...Array(k)].map(() => new Array(k).fill(0));
+  const C = WINDOWS.map(() => new Array(k).fill(0)), tot = new Array(k).fill(0);
+  for (const b of rows) {
+    const x = columnsOf(b);
+    for (let j = 0; j < k; j++) {
+      tot[j] += x[j];
+      if (!x[j]) continue;
+      for (let m = 0; m < k; m++) G[j][m] += x[j] * x[m];
+      for (let w = 0; w < WINDOWS.length; w++) C[w][j] += x[j] * (b.curve[w + 1] - b.curve[w]);
+    }
+  }
+  const finalSum = rows.reduce((s, b) => s + b.final, 0);
+  const prior = WINDOWS.map((_, w) => rows.reduce((s, b) => s + b.curve[w + 1] - b.curve[w], 0) / finalSum);
+  const Gr = G.map((r, j) => r.map((v, m) => j === m ? v * (1 + RIDGE) : v));
+  const beta = WINDOWS.map((_, w) => nnls(Gr, C[w].map((v, j) => v + RIDGE * G[j][j] * prior[w])));
+  const out = [];
+  for (let j = 0; j < k; j++) {
+    const s = beta.reduce((a, bw) => a + bw[j], 0);
+    out.push(tot[j] < 1500 || s <= 0 ? null : beta.map(bw => bw[j] / s));
+  }
+  return { ok: true, n: rows.length, out };
+}
+const partyCols = b => [...b.votes, b.blocs.other, b.invalid];
+const blocCols = b => [b.blocs.coalition, b.blocs.opposition, b.blocs.arab, b.blocs.other, b.invalid];
+
+// ---------- tooltip ----------
+const tip = document.getElementById("tip");
+function showTip(ev, title, rows) {
+  tip.innerHTML = `<div class="t">${title}</div>` + rows.map(([label, val, color]) =>
+    `<div class="r"><span>${color ? `<i class="sw" style="background:${color}"></i>` : ""}${label}</span><span>${val}</span></div>`).join("");
+  tip.style.display = "block";
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+
+// ---------- svg helpers ----------
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+function legend(id, items) {
+  document.getElementById(id).innerHTML = items.map(([name, color, line]) =>
+    `<span><i class="sw${line ? " line" : ""}" style="background:${color}"></i>${name}</span>`).join("");
+}
+
+// ---------- line chart: cumulative turnout ----------
+function drawLine(sel, agg) {
+  const host = document.getElementById("lineChart");
+  host.innerHTML = "";
+  const W = host.clientWidth, H = 260, m = { l: 40, r: 64, t: 12, b: 26 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  const x = h => m.l + (h - 7) / 15 * (W - m.l - m.r);
+  const series = [{ name: sel, color: css("--accent"), v: agg.curve.map(c => c / agg.bzb) }];
+  if (state.city != null || state.box != null || state.lean)
+    series.push({ name: "כל הארץ", color: css("--national"), v: NATIONAL.curve.map(c => c / NATIONAL.bzb) });
+  const ymax = Math.min(1, niceMax(Math.max(...series.flatMap(s => s.v)) * 1.05));
+  const y = v => H - m.b - v / ymax * (H - m.t - m.b);
+  for (let t = 0; t <= 4; t++) {
+    const v = ymax * t / 4;
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: t ? css("--grid") : css("--axis") }, svg);
+    el("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end" }, svg).textContent = Math.round(v * 100) + "%";
+  }
+  let lastX = -1e9;
+  POINTS.forEach(h => {
+    if (h !== 22 && (x(h) - lastX < 40 || x(22) - x(h) < 40)) return;
+    lastX = x(h); el("text", { x: x(h), y: H - 8, "text-anchor": "middle" }, svg).textContent = pad(h);
+  });
+  const cross = el("line", { y1: m.t, y2: H - m.b, stroke: css("--axis"), visibility: "hidden" }, svg);
+  series.slice().reverse().forEach(s => {
+    el("polyline", { points: s.v.map((v, k) => `${x(POINTS[k])},${y(v)}`).join(" "), fill: "none",
+      stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+    s.v.forEach((v, k) => el("circle", { cx: x(POINTS[k]), cy: y(v), r: 4, fill: s.color,
+      stroke: css("--surface"), "stroke-width": 2 }, svg));
+  });
+  // direct label at the end of each line, nudged apart if they collide
+  const ends = series.map(s => ({ s, yy: y(s.v[s.v.length - 1]) })).sort((a, b) => a.yy - b.yy);
+  for (let k = 1; k < ends.length; k++) if (ends[k].yy - ends[k - 1].yy < 14) ends[k].yy = ends[k - 1].yy + 14;
+  ends.forEach(({ s, yy }) => {
+    const t = el("text", { x: W - m.r + 8, y: yy + 4, "text-anchor": "start" }, svg);
+    t.textContent = pct(s.v[s.v.length - 1]); t.style.fill = css("--ink"); t.style.fontWeight = 600;
+  });
+  legend("lineLegend", series.map(s => [s.name, s.color, true]));
+  const hit = el("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent" }, svg);
+  hit.addEventListener("mousemove", ev => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width;
+    let k = 0; POINTS.forEach((h, j) => { if (Math.abs(x(h) - px) < Math.abs(x(POINTS[k]) - px)) k = j; });
+    cross.setAttribute("x1", x(POINTS[k])); cross.setAttribute("x2", x(POINTS[k])); cross.setAttribute("visibility", "visible");
+    const rows = series.map(s => [s.name, pct(s.v[k]), s.color]);
+    if (k > 0 && k < POINTS.length - 1) rows.push(["חלק מהמצביעים הסופיים", pct(agg.curve[k] / agg.final)]);
+    rows.push(["מצביעים", fmt(agg.curve[k])]);
+    showTip(ev, `עד ${pad(POINTS[k])}`, rows);
+  });
+  hit.addEventListener("mouseleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+}
+
+// ---------- stacked bar: who voted in each window ----------
+function drawBars(agg) {
+  const host = document.getElementById("barChart");
+  host.innerHTML = "";
+  legend("barLegend", STACK.map(k => [BLOC_NAME[k], css("--" + k)]));
+  if (!agg.nRes) { host.innerHTML = `<div class="empty">אין תוצאות לקלפיות שנבחרו</div>`; return; }
+  const W = host.clientWidth, H = 260, m = { l: 52, r: 8, t: 12, b: 26 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  const rate = state.barMode === "rate";
+  const vals = WINDOWS.map(([a, b], w) => {
+    const tot = STACK.reduce((s, k) => s + agg.bloc[k].win[w], 0);
+    return STACK.map(k => rate ? agg.bloc[k].win[w] / (b - a) : agg.bloc[k].win[w] / tot);
+  });
+  const ymax = rate ? niceMax(Math.max(...vals.map(v => v.reduce((a, b) => a + b, 0)))) : 1;
+  const y = v => H - m.b - v / ymax * (H - m.t - m.b);
+  for (let t = 0; t <= 4; t++) {
+    const v = ymax * t / 4;
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: t ? css("--grid") : css("--axis") }, svg);
+    el("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end" }, svg).textContent =
+      rate ? (v >= 1000 ? fmt(v / 1000) + "K" : fmt(v)) : Math.round(v * 100) + "%";
+  }
+  const band = (W - m.l - m.r) / WINDOWS.length, bw = Math.min(56, band * 0.6);
+  vals.forEach((v, w) => {
+    const cx = m.l + band * (w + 0.5);
+    el("text", { x: cx, y: H - 8, "text-anchor": "middle" }, svg).textContent =
+      band < 76 ? `${String(WINDOWS[w][0]).padStart(2, "0")}–${String(WINDOWS[w][1]).padStart(2, "0")}` : WLABEL[w];
+    let acc = 0;
+    const top = v.reduce((a, b, k) => b > 0 ? k : a, 0);
+    v.forEach((val, k) => {
+      if (val <= 0) return;
+      const y0 = y(acc), y1 = y(acc + val); acc += val;
+      const h = Math.max(0, y0 - y1 - (k === top ? 0 : 2)), x0 = cx - bw / 2;
+      const r = k === top ? Math.min(4, h) : 0;
+      el("path", { d: `M${x0},${y0}V${y0 - h + r}q0,-${r} ${r},-${r}H${x0 + bw - r}q${r},0 ${r},${r}V${y0}Z`,
+        fill: css("--" + STACK[k]) }, svg);
+    });
+    const hit = el("rect", { x: cx - band / 2, y: m.t, width: band, height: H - m.t - m.b, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", ev => {
+      const totVotes = STACK.reduce((s, k) => s + agg.bloc[k].win[w], 0);
+      showTip(ev, `${WLABEL[w]} · ${fmt(totVotes)} קולות כשרים (הערכה)`, STACK.map(k =>
+        [BLOC_NAME[k], `${fmt(agg.bloc[k].win[w])} · ${pct(agg.bloc[k].win[w] / totVotes)}`, css("--" + k)]));
+    });
+    hit.addEventListener("mouseleave", hideTip);
+  });
+}
+
+// ---------- heat table: when each party's voters voted ----------
+function heatColor(ratio) {
+  if (ratio == null || !isFinite(ratio) || ratio <= 0) return "transparent";
+  const t = Math.max(-1, Math.min(1, Math.log2(ratio) / 0.5));
+  const pctMix = Math.round(Math.abs(t) * 70);
+  return `color-mix(in oklab, var(${t >= 0 ? "--pos" : "--neg"}) ${pctMix}%, var(--mid))`;
+}
+function drawHeat(bs, agg) {
+  const tbl = document.getElementById("heat");
+  const note = document.getElementById("methodNote");
+  if (!agg.nRes) { tbl.innerHTML = `<tr><td class="empty">אין תוצאות לקלפיות שנבחרו</td></tr>`; note.textContent = ""; return; }
+  const all = agg.win.map(v => v / agg.resFinal);           // all voters' share in each window
+  let partyShares, blocShares;
+  if (state.method === "prop") {
+    partyShares = agg.party.map(p => p.total ? p.win.map(v => v / p.total) : null);
+    blocShares = STACK.map(k => agg.bloc[k].total ? agg.bloc[k].win.map(v => v / agg.bloc[k].total) : null);
+    note.textContent = `שיטה יחסית: ${fmt(agg.nRes)} קלפיות עם תוצאות. בתוך כל קלפי כל המפלגות מקבלות את אותו קצב הצבעה; ההבדלים נובעים מההבדלים בין הקלפיות.`;
+  } else {
+    const rp = regress(bs, partyCols, PARTIES.length + 2), rb = regress(bs, blocCols, 5);
+    if (!rp.ok) {
+      tbl.innerHTML = `<tr><td class="empty">רגרסיה דורשת לפחות 60 קלפיות בלי ערכים משוערים (יש ${rp.n}). הרחיבו את הסינון או עברו לשיטה היחסית.</td></tr>`;
+      note.textContent = ""; return;
+    }
+    partyShares = rp.out.slice(0, PARTIES.length);
+    blocShares = rb.out.slice(0, 4);
+    note.textContent = `רגרסיה אקולוגית על ${fmt(rp.n)} קלפיות בלי ערכים משוערים. הערכה סטטיסטית: למפלגות קטנות או בסינון צר התוצאה רועשת. "—" = מעט מדי קולות להערכה.`;
+  }
+  const row = (name, shares, total, color, cls = "") => {
+    const cells = WINDOWS.map((_, w) => {
+      const s = shares ? shares[w] : null;
+      const ratio = s == null ? null : s / all[w];
+      return `<td class="c" style="background:${heatColor(ratio)}" title="${s == null ? "" : "פי " + ratio.toFixed(2) + " מכלל המצביעים"}">${pct(s)}</td>`;
+    }).join("");
+    const by12 = shares ? shares[0] + shares[1] : null;
+    return `<tr class="${cls}"><td>${color ? `<i class="sw" style="background:${color}"></i> ` : ""}${name}</td>${cells}
+      <td class="n">${pct(by12)}</td><td class="n">${fmt(total)}</td></tr>`;
+  };
+  let html = `<thead><tr><th>מפלגה / גוש</th>${WLABEL.map(l => `<th class="n" style="text-align:center">${l}</th>`).join("")}
+    <th class="n">עד 12:00</th><th class="n">קולות</th></tr></thead><tbody>`;
+  html += row("כלל המצביעים", all, agg.resFinal, null, "group");
+  STACK.forEach((k, j) => html += row(BLOC_NAME[k], blocShares[j], agg.bloc[k].total, css("--" + k), j === 0 ? "group sep" : "group"));
+  PARTIES.forEach((p, k) => html += row(`${p.name} <span class="imp">(${p.code})</span>`, partyShares[k], agg.party[k].total,
+    css("--" + p.bloc), k === 0 ? "sep" : ""));
+  tbl.innerHTML = html + "</tbody>";
+}
+
+// ---------- scatter: bloc share vs voting pace ----------
+function drawScatter(bs) {
+  const host = document.getElementById("scatter");
+  host.innerHTML = "";
+  legend("scLegend", [...BLOCS.map(b => [`קלפי עם רוב ל${b.key === "arab" ? "מפלגות הערביות" : b.name}`, css("--" + b.key)]),
+                      ["ממוצע לפי טווח", css("--ink"), true]]);
+  const hi = state.scY, X = state.scX;
+  const pts = bs.filter(b => b.votes && b.valid > 0 && !(b.imp & (1 << hi)))
+                .map(b => ({ b, x: b.blocs[X] / b.valid, y: b.curve[hi + 1] / b.final }));
+  document.getElementById("scNote").textContent =
+    `${fmt(pts.length)} קלפיות שדיווחו סמוך ל־${pad(HOURS[hi])}. ציר X: חלק ה${BLOC_NAME[X]} מהקולות הכשרים. ציר Y: אחוז ממצביעי הקלפי שכבר הצביעו ב־${pad(HOURS[hi])}.`;
+  if (!pts.length) { host.innerHTML = `<div class="empty">אין קלפיות להצגה</div>`; return; }
+  const W = host.clientWidth, H = 340, m = { l: 44, r: 12, t: 12, b: 34 };
+  const ymax = Math.min(1, niceMax(Math.max(...pts.map(p => p.y)) * 1.02));
+  const sx = v => m.l + v * (W - m.l - m.r), sy = v => H - m.b - v / ymax * (H - m.t - m.b);
+  const dpr = devicePixelRatio || 1;
+  const cv = document.createElement("canvas");
+  cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + "px";
+  host.appendChild(cv);
+  const g = cv.getContext("2d"); g.scale(dpr, dpr);
+  g.font = "11px system-ui, sans-serif";
+  g.strokeStyle = css("--grid"); g.fillStyle = css("--muted"); g.lineWidth = 1;
+  g.textAlign = "right";
+  for (let t = 0; t <= 4; t++) {
+    const v = ymax * t / 4; g.beginPath(); g.moveTo(m.l, sy(v)); g.lineTo(W - m.r, sy(v));
+    g.strokeStyle = t ? css("--grid") : css("--axis"); g.stroke();
+    g.fillText(Math.round(v * 100) + "%", m.l - 6, sy(v) + 4);
+  }
+  g.textAlign = "center";
+  for (let t = 0; t <= 10; t += 2) g.fillText(t * 10 + "%", sx(t / 10), H - m.b + 16);
+  g.fillText(`חלק ה${BLOC_NAME[X]} בקלפי`, (m.l + W - m.r) / 2, H - 4);
+  const r = pts.length > 3000 ? 2.5 : 4;
+  g.globalAlpha = pts.length > 3000 ? 0.45 : 0.75;
+  for (const p of pts) { g.fillStyle = css("--" + p.b.lean); g.beginPath(); g.arc(sx(p.x), sy(p.y), r, 0, 7); g.fill(); }
+  g.globalAlpha = 1;
+  // binned mean
+  const bins = [...Array(20)].map(() => [0, 0]);
+  for (const p of pts) { const k = Math.min(19, Math.floor(p.x * 20)); bins[k][0] += p.y * p.b.final; bins[k][1] += p.b.final; }
+  g.strokeStyle = css("--ink"); g.lineWidth = 2; g.beginPath(); let started = false;
+  bins.forEach(([s, n], k) => {
+    if (n < 2000) return;
+    const px = sx((k + 0.5) / 20), py = sy(s / n);
+    started ? g.lineTo(px, py) : g.moveTo(px, py); started = true;
+  });
+  g.stroke();
+  // hover: nearest point
+  cv.addEventListener("mousemove", ev => {
+    const rc = cv.getBoundingClientRect(), mx = ev.clientX - rc.left, my = ev.clientY - rc.top;
+    let best = null, bd = 100;
+    for (const p of pts) { const d = (sx(p.x) - mx) ** 2 + (sy(p.y) - my) ** 2; if (d < bd) { bd = d; best = p; } }
+    if (!best) return hideTip();
+    const b = best.b;
+    showTip(ev, `${CITY[b.c].name} · קלפי ${b.box}`, [
+      [`עד ${pad(HOURS[hi])}`, pct(best.y)],
+      ...BLOCS.map(x => [x.name, pct(b.blocs[x.key] / b.valid), css("--" + x.key)]),
+      ["אחוז הצבעה סופי", pct(b.final / b.bzb)],
+    ]);
+  });
+  cv.addEventListener("mouseleave", hideTip);
+  cv.addEventListener("click", ev => { /* reuse hover target */ });
+}
+
+// ---------- city table ----------
+function cityRows() {
+  return CITY.map((c, ci) => {
+    let bs = byCity[ci]; if (state.lean) bs = bs.filter(b => b.lean === state.lean);
+    if (!bs.length) return null;
+    const a = aggregate(bs), valid = STACK.reduce((s, k) => s + a.bloc[k].total, 0);
+    return { ci, name: c.name, n: bs.length, bzb: a.bzb, voters: a.final, turnout: a.final / a.bzb,
+      h: HOURS.map((_, k) => a.curve[k + 1] / a.final),
+      coalition: valid ? a.bloc.coalition.total / valid : null, opposition: valid ? a.bloc.opposition.total / valid : null,
+      arab: valid ? a.bloc.arab.total / valid : null };
+  }).filter(Boolean);
+}
+let CITY_CACHE = null, CITY_CACHE_LEAN = null;
+function drawCities() {
+  if (CITY_CACHE_LEAN !== state.lean) { CITY_CACHE = cityRows(); CITY_CACHE_LEAN = state.lean; }
+  const cols = [["name", "יישוב"], ["n", "קלפיות"], ["bzb", "בעלי זכות"], ["voters", "מצביעים"], ["turnout", "אחוז הצבעה"],
+    ...HOURS.map((h, k) => ["h" + k, "עד " + pad(h)]), ["coalition", "קואליציה"], ["opposition", "אופוזיציה"], ["arab", "ערביות"]];
+  const val = (r, k) => k[0] === "h" && k.length === 2 ? r.h[+k[1]] : r[k];
+  const { key, dir } = state.citySort, q = state.citySearch.trim();
+  const rows = CITY_CACHE.filter(r => !q || r.name.includes(q))
+    .sort((a, b) => key === "name" ? dir * a.name.localeCompare(b.name, "he") : dir * ((val(a, key) ?? -1) - (val(b, key) ?? -1)));
+  const cell = (r, k) => k === "name" ? `<td>${r.name}</td>` :
+    `<td class="n">${["n", "bzb", "voters"].includes(k) ? fmt(val(r, k)) : pct(val(r, k))}</td>`;
+  document.getElementById("cityTable").innerHTML =
+    `<thead><tr>${cols.map(([k, l]) => `<th class="sortable ${k === "name" ? "" : "n"}" data-k="${k}">${l}${key === k ? (dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
+     <tbody>${rows.map(r => `<tr class="click" data-ci="${r.ci}">${cols.map(([k]) => cell(r, k)).join("")}</tr>`).join("")}</tbody>`;
+}
+
+// ---------- box table ----------
+function drawBoxes(bs) {
+  const title = document.getElementById("boxTitle");
+  const tbl = document.getElementById("boxTable");
+  if (state.city == null) {
+    title.textContent = "קלפיות";
+    tbl.innerHTML = `<tr><td class="empty">בחרו יישוב (בסינון למעלה או בטבלת היישובים) כדי לראות את הקלפיות שלו.</td></tr>`;
+    return;
+  }
+  const q = state.boxSearch.trim();
+  const rows = bs.filter(b => !q || String(b.box).startsWith(q));
+  title.textContent = `קלפיות ב${CITY[state.city].name} (${fmt(rows.length)})`;
+  const head = `<thead><tr><th>קלפי</th><th class="n">בעלי זכות</th><th class="n">מצביעים</th><th class="n">אחוז הצבעה</th>
+    ${HOURS.map(h => `<th class="n">עד ${pad(h)}</th>`).join("")}
+    <th class="n">קואליציה</th><th class="n">אופוזיציה</th><th class="n">ערביות</th><th>גוש מוביל</th></tr></thead>`;
+  const body = rows.map(b => `<tr class="click" data-bi="${b.i}"><td>${b.box}</td><td class="n">${fmt(b.bzb)}</td>
+    <td class="n">${fmt(b.final)}</td><td class="n">${pct(b.final / b.bzb)}</td>
+    ${HOURS.map((_, k) => `<td class="n${b.imp & (1 << k) ? " imp" : ""}">${pct(b.curve[k + 1] / b.final)}</td>`).join("")}
+    ${BLOCS.map(x => `<td class="n">${b.votes ? pct(b.blocs[x.key] / b.valid) : "—"}</td>`).join("")}
+    <td>${b.lean ? `<i class="sw" style="background:${css("--" + b.lean)}"></i> ${BLOC_NAME[b.lean]}` : "אין תוצאות"}</td></tr>`).join("");
+  tbl.innerHTML = head + `<tbody>${body}</tbody>`;
+}
+
+// ---------- KPIs ----------
+function drawKpis(agg) {
+  const rates = WINDOWS.map(([a, b], w) => (agg.curve[w + 1] - agg.curve[w]) / (b - a));
+  const peak = rates.indexOf(Math.max(...rates));
+  const items = [
+    ["קלפיות", fmt(agg.n), agg.nRes < agg.n ? `${fmt(agg.n - agg.nRes)} בלי תוצאות` : "כולן עם תוצאות"],
+    ["בעלי זכות בחירה", fmt(agg.bzb), ""],
+    ["הצביעו", fmt(agg.final), `אחוז הצבעה ${pct(agg.final / agg.bzb)}`],
+    ["הצביעו עד 12:00", pct(agg.curve[2] / agg.final), "מתוך המצביעים בסוף היום"],
+    ["הצביעו אחרי 18:00", pct((agg.final - agg.curve[4]) / agg.final), "מתוך המצביעים בסוף היום"],
+    ["שעות השיא", WLABEL[peak], `${fmt(rates[peak])} מצביעים לשעה`],
+  ];
+  document.getElementById("kpis").innerHTML = items.map(([k, v, d]) =>
+    `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join("");
+}
+
+// ---------- render ----------
+function selectionLabel() {
+  const parts = [];
+  parts.push(state.city == null ? "כל הארץ" : CITY[state.city].name);
+  if (state.box != null) parts.push("קלפי " + BOXES[state.box].box);
+  if (state.lean) parts.push({ coalition: "רוב קואליציוני", opposition: "רוב אופוזיציוני", arab: "רוב למפלגות הערביות" }[state.lean]);
+  return parts.join(" · ");
+}
+function render() {
+  const bs = selected(), agg = aggregate(bs), label = selectionLabel();
+  document.getElementById("selection").innerHTML = `מוצג: <b>${label}</b>`;
+  drawKpis(agg);
+  if (!bs.length) {
+    for (const id of ["lineChart", "barChart", "scatter"]) document.getElementById(id).innerHTML = `<div class="empty">אין קלפיות שמתאימות לסינון</div>`;
+    document.getElementById("heat").innerHTML = "";
+  } else {
+    drawLine(label, agg); drawBars(agg); drawHeat(bs, agg); drawScatter(bs);
+  }
+  drawCities(); drawBoxes(state.box != null ? byCity[state.city] : bs);
+}
+
+// ---------- controls ----------
+const cityInput = document.getElementById("city"), boxSel = document.getElementById("box");
+document.getElementById("cities").innerHTML = CITY.map(c => `<option value="${c.name}">`).join("");
+function setCity(ci) {
+  state.city = ci; state.box = null;
+  cityInput.value = ci == null ? "" : CITY[ci].name;
+  boxSel.disabled = ci == null;
+  boxSel.innerHTML = `<option value="">כל הקלפיות</option>` +
+    (ci == null ? "" : byCity[ci].map(b => `<option value="${b.i}">קלפי ${b.box}</option>`).join(""));
+  state.boxSearch = ""; document.getElementById("boxSearch").value = "";
+  render();
+}
+cityInput.addEventListener("change", () => {
+  const v = cityInput.value.trim();
+  const ci = CITY.findIndex(c => c.name === v);
+  if (!v) setCity(null); else if (ci >= 0) setCity(ci);
+});
+cityInput.addEventListener("input", () => { if (!cityInput.value) setCity(null); });
+boxSel.addEventListener("change", () => { state.box = boxSel.value === "" ? null : +boxSel.value; render(); });
+document.getElementById("lean").addEventListener("change", e => { state.lean = e.target.value; render(); });
+document.getElementById("reset").addEventListener("click", () => {
+  state.lean = ""; document.getElementById("lean").value = ""; setCity(null);
+});
+function seg(id, key, num) {
+  const g = document.getElementById(id);
+  g.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    g.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    state[key] = num ? +b.dataset.v : b.dataset.v; render();
+  });
+}
+seg("barMode", "barMode"); seg("method", "method"); seg("scX", "scX"); seg("scY", "scY", true);
+document.getElementById("cityTable").addEventListener("click", e => {
+  const th = e.target.closest("th.sortable");
+  if (th) {
+    const k = th.dataset.k;
+    state.citySort = state.citySort.key === k ? { key: k, dir: -state.citySort.dir } : { key: k, dir: k === "name" ? 1 : -1 };
+    return drawCities();
+  }
+  const tr = e.target.closest("tr[data-ci]");
+  if (tr) { setCity(+tr.dataset.ci); scrollTo({ top: 0, behavior: "smooth" }); }
+});
+document.getElementById("boxTable").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-bi]"); if (!tr) return;
+  state.box = +tr.dataset.bi; boxSel.value = tr.dataset.bi; render(); scrollTo({ top: 0, behavior: "smooth" });
+});
+document.getElementById("citySearch").addEventListener("input", e => { state.citySearch = e.target.value; drawCities(); });
+document.getElementById("boxSearch").addEventListener("input", e => {
+  state.boxSearch = e.target.value; drawBoxes(state.box != null ? byCity[state.city] : selected());
+});
+document.getElementById("theme").addEventListener("click", () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("theme", root.dataset.theme); } catch (e) {}
+  render();
+});
+try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(render, 150); });
+render();
+</script>
+</body>
+</html>
