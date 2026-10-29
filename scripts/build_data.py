@@ -76,6 +76,9 @@ def main():
     res = pd.read_csv(ROOT / "expb.csv", encoding="utf-8-sig")
     res = res.dropna(subset=["סמל ישוב"])
     res["סמל ישוב"] = res["סמל ישוב"].astype(int)
+    # external envelopes (city code 9999) have no city and no hourly reports
+    envelopes = res[res["סמל ישוב"] == 9999]
+    res = res[res["סמל ישוב"] != 9999]
     res = res.set_index(["סמל ישוב", "ברזל"])
 
     turn = {h: read_turnout(h) for h in HOURS + [22]}
@@ -173,7 +176,8 @@ def main():
         rows.append([city_idx[b["city"]], box_label, b["bzb"], b["final"], b["cum"], imputed_mask, valid, votes])
 
     # Sanity check against the city results file
-    city_res = pd.read_csv(ROOT / "expc.csv", encoding="utf-8-sig").set_index("סמל ישוב")
+    city_res = pd.read_csv(ROOT / "expc.csv", encoding="utf-8-sig")
+    city_res = city_res[city_res["סמל ישוב"] != 9999].set_index("סמל ישוב")
     box_sum = res.groupby(level=0)["מצביעים"].sum()
     mismatched = int((city_res["מצביעים"] - box_sum.reindex(city_res.index).fillna(0)).ne(0).sum())
 
@@ -182,6 +186,9 @@ def main():
         parties=[dict(code=c, name=n, bloc=bl) for c, n, bl in PARTIES],
         boxes_total=len(rows),
         boxes_with_results=sum(1 for r in rows if r[7] is not None),
+        boxes_without_results=sum(1 for r in rows if r[7] is None),
+        boxes_without_hourly=sum(1 for b in boxes if not b["pts"]),
+        envelope_voters=int(envelopes["מצביעים"].sum()),
         imputed_per_hour=n_imputed,
         city_file_mismatches=mismatched,
     )
