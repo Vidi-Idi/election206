@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>הצבעה לפי גיל</title>
+<link rel="stylesheet" href="style.css">
+<style>
+:root { --q1: #86b6ef; --q2: #5598e7; --q3: #2a78d6; --q4: #1c5cab; --q5: #104281; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --q1: #184f95; --q2: #256abf; --q3: #3987e5; --q4: #6da7ec; --q5: #b7d3f6; } }
+:root[data-theme="dark"] { --q1: #184f95; --q2: #256abf; --q3: #3987e5; --q4: #6da7ec; --q5: #b7d3f6; }
+.summary { margin-bottom: 16px; border-inline-start: 4px solid var(--accent); }
+.summary h3 { font-size: 16px; margin: 0 0 8px; }
+.summary p { margin: 6px 0; }
+.summary ul { margin: 6px 0 0; padding-inline-start: 20px; color: var(--ink-2); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+.stat { min-width: 0; }
+.stat h3 { font-size: 14px; margin: 0 0 2px; }
+.stat .what { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+.stat .big { font-size: 22px; font-weight: 600; }
+.stat .tablewrap { max-height: none; border: 0; }
+.heat td.c { text-align: center; font-variant-numeric: tabular-nums; border: 2px solid var(--surface); border-radius: 6px; cursor: pointer; }
+.heat td.c.on { outline: 2px solid var(--ink); outline-offset: -2px; }
+.outline { width: 10px; height: 10px; border-radius: 3px; border: 2px solid var(--ink-2); display: inline-block; }
+.filters select { min-width: 150px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>הצבעה לפי גיל התושבים</h1>
+  <p class="sub">הקשר בין הרכב הגילאים ביישוב (מרשם האוכלוסין, 2026) לבין ההצבעה בו: גושים, אחוז הצבעה, קצב ההצבעה במהלך היום והשינוי מ־2022.</p>
+  <button class="theme" id="theme" title="החלפת ערכת צבעים">◐</button>
+</header>
+<nav class="tabs"><a href="index.html">הצבעה לפי שעות</a><a href="compare.html">השוואה ל־2022</a><a href="age.html" class="on">הצבעה לפי גיל</a></nav>
+
+<div class="filters">
+  <label>מדד גיל (ציר X)<select id="measure"></select></label>
+  <label>מה בודקים (ציר Y)<select id="outcome"></select></label>
+  <label>אילו יישובים
+    <select id="sector">
+      <option value="all">כל היישובים</option>
+      <option value="jewish">ללא יישובים ערביים</option>
+      <option value="arab">רק יישובים ערביים</option>
+    </select>
+  </label>
+  <label>יישוב להדגשה
+    <input type="search" id="city" list="cities" placeholder="בחרו יישוב">
+    <datalist id="cities"></datalist>
+  </label>
+  <div class="selection" id="selection"></div>
+</div>
+
+<div id="summary"></div>
+
+<div class="grid">
+  <section class="card wide">
+    <div class="card-head"><h2 id="scTitle"></h2></div>
+    <div class="legend" id="scLegend"></div>
+    <div class="chart" id="scatter"></div>
+    <p class="note" id="scNote"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2 id="qTitle"></h2></div>
+    <div class="chart" id="quint"></div>
+    <p class="note">היישובים מחולקים לחמש קבוצות שוות לפי מספר המבוגרים, מהצעירה (1) למבוגרת (5). הערך בכל קבוצה מחושב על סך הקולות בה.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>קצב ההצבעה לפי קבוצת גיל</h2></div>
+    <div class="legend" id="paceLegend"></div>
+    <div class="chart" id="pace"></div>
+    <p class="note">אחוז מהמצביעים של סוף היום שכבר הצביעו בכל שעה, בכל קבוצת יישובים.</p>
+  </section>
+
+  <section class="card wide">
+    <div class="card-head"><h2>מפת מתאמים: כל מדדי הגיל מול כל המדדים</h2></div>
+    <div class="scale"><span>מתאם שלילי</span><span class="bar"></span><span>מתאם חיובי</span>
+      <span class="note" style="margin:0 8px">r של פירסון, משוקלל לפי מספר המבוגרים. לחיצה על משבצת מציגה אותה בגרפים.</span></div>
+    <div class="tablewrap" style="max-height:none;margin-top:8px"><table class="heat" id="corr"></table></div>
+  </section>
+
+  <section class="card" id="cityCard">
+    <div class="card-head"><h2 id="cityTitle">הרכב הגילאים</h2></div>
+    <div class="legend"><span><i class="sw" style="background:var(--accent)"></i><span id="cityLegend">היישוב</span></span><span><i class="outline"></i>כל הארץ</span></div>
+    <div class="chart" id="ages"></div>
+    <p class="note">אחוז מכלל התושבים בכל קבוצת גיל.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>טבלת הקבוצות</h2></div>
+    <div class="tablewrap" style="max-height:none"><table id="qTable"></table></div>
+  </section>
+</div>
+
+<h2 style="margin:28px 0 4px">מבחנים סטטיסטיים</h2>
+<p class="note" style="margin:0 0 12px">הניתוח הוא ברמת יישוב ולא ברמת אדם: אם ביישובים מבוגרים הצביעו יותר לגוש מסוים, זה לא אומר שהמבוגרים עצמם הצביעו כך.</p>
+<div class="stats" id="stats"></div>
+
+<details>
+  <summary>איך זה מחושב</summary>
+  <ul>
+    <li><b>מקור:</b> מספר התושבים בכל יישוב לפי קבוצות גיל (0–5, 6–18, 19–45, 46–55, 56–64, 65+), 2026, מחובר לתוצאות לפי סמל יישוב. מספר המבוגרים (19+) כמעט זהה למספר בעלי זכות הבחירה, מה שמאשר את החיבור.</li>
+    <li><b>מדדי הגיל:</b> חלק כל קבוצת גיל מתוך המבוגרים (19+), אחוז הילדים (0–18) מכלל התושבים, וגיל ממוצע משוער של המבוגרים (לפי אמצע כל קבוצה: 32, 50.5, 60, 75).</li>
+    <li><b>יישוב ערבי:</b> יישוב שבו המפלגות הערביות קיבלו יותר מחצי מהקולות הכשרים. זו הגדרה לפי ההצבעה, כי בקובץ אין שדה של מגזר.</li>
+    <li><b>סינון:</b> רק יישובים עם 500 קולות כשרים לפחות, כדי שיישובים קטנים מאוד לא ייצרו רעש.</li>
+    <li><b>שקלול:</b> כל יישוב נספר לפי מספר המבוגרים בו, כך שעיר גדולה משפיעה יותר מקיבוץ קטן. מתאם ספירמן מחושב בלי שקלול (כל יישוב שווה), כבדיקה נוספת. ערכי p מחושבים לפי מספר היישובים.</li>
+    <li><b>רגרסיה:</b> ריבועים פחותים משוקללים. המשתנים: מדד הגיל, אחוז הילדים, יישוב ערבי (כשמוצגים כל היישובים) וגודל היישוב (לוגריתם). כך בודקים אם הקשר לגיל נשאר כשמשווים בין יישובים דומים.</li>
+    <li><b>קצב ההצבעה</b> לקוח מהדשבורד השעתי (הערכים לשעות העגולות, כולל ההערכות לקלפיות שלא דיווחו).</li>
+  </ul>
+</details>
+</main>
+<div class="tip" id="tip"></div>
+
+<script src="age_data.js"></script>
+<script>
+"use strict";
+const D = window.AGE_DATA;
+const HOURS = D.hours;
+const fmt = n => Math.round(n).toLocaleString("he-IL");
+const ltr = s => `⁦${s}⁩`;
+const pct = (x, d = 1) => (x == null || !isFinite(x)) ? "—" : (x * 100).toFixed(d) + "%";
+function signed(v, d) { const a = Math.abs(v).toFixed(d); return ltr(+a === 0 ? (0).toFixed(d) : (v > 0 ? "+" : "−") + a); }
+const pad = h => String(h).padStart(2, "0") + ":00";
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function fmtP(p) { if (!isFinite(p)) return "—"; return ltr(p < 0.0001 ? "p < 0.0001" : "p = " + (p < 0.01 ? p.toFixed(4) : p.toFixed(3))); }
+
+// ---------- city records ----------
+const CITIES = D.cities.map(([code, name, district, ages, r26, r22, pace]) => {
+  const [bzb, voters, valid, coalition, opposition, arab] = r26;
+  const adults = ages[2] + ages[3] + ages[4] + ages[5], total = ages.reduce((a, b) => a + b, 0);
+  const c = { code, name, district, ages, total, adults, bzb, voters, valid, coalition, opposition, arab, pace };
+  if (r22) { const [, , v22, c22, o22, a22] = r22; c.r22 = { valid: v22, coalition: c22, opposition: o22, arab: a22 }; }
+  c.isArab = valid > 0 && arab / valid > 0.5;
+  return c;
+});
+
+const MEASURES = [
+  { key: "a65", name: "אחוז בני 65+ (מהמבוגרים)", short: "בני 65+", v: c => c.ages[5] / c.adults, unit: "pct" },
+  { key: "a19", name: "אחוז בני \u206619–45\u2069 (מהמבוגרים)", short: "בני \u206619–45\u2069", v: c => c.ages[2] / c.adults, unit: "pct" },
+  { key: "a46", name: "אחוז בני \u206646–55\u2069 (מהמבוגרים)", short: "בני \u206646–55\u2069", v: c => c.ages[3] / c.adults, unit: "pct" },
+  { key: "a56", name: "אחוז בני \u206656–64\u2069 (מהמבוגרים)", short: "בני \u206656–64\u2069", v: c => c.ages[4] / c.adults, unit: "pct" },
+  { key: "kids", name: "אחוז ילדים \u20660–18\u2069 (מכלל התושבים)", short: "ילדים \u20660–18\u2069", v: c => (c.ages[0] + c.ages[1]) / c.total, unit: "pct" },
+  { key: "avg", name: "גיל ממוצע משוער של המבוגרים", short: "גיל ממוצע", v: c => (32 * c.ages[2] + 50.5 * c.ages[3] + 60 * c.ages[4] + 75 * c.ages[5]) / c.adults, unit: "yrs" },
+];
+const OUTCOMES = [
+  { key: "coalition", name: "הצבעה לקואליציה", v: c => c.coalition / c.valid, num: c => c.coalition, den: c => c.valid, color: "--coalition" },
+  { key: "opposition", name: "הצבעה לאופוזיציה", v: c => c.opposition / c.valid, num: c => c.opposition, den: c => c.valid, color: "--opposition" },
+  { key: "arab", name: "הצבעה למפלגות הערביות", v: c => c.arab / c.valid, num: c => c.arab, den: c => c.valid, color: "--arab" },
+  { key: "turnout", name: "אחוז הצבעה", v: c => c.voters / c.bzb, num: c => c.voters, den: c => c.bzb, color: "--accent" },
+  { key: "by12", name: "הצביעו עד 12:00 (מתוך המצביעים)", v: c => c.pace ? c.pace[1] / c.pace[5] : null, num: c => c.pace ? c.pace[1] : 0, den: c => c.pace ? c.pace[5] : 0, color: "--accent" },
+  { key: "after18", name: "הצביעו אחרי 18:00 (מתוך המצביעים)", v: c => c.pace ? 1 - c.pace[3] / c.pace[5] : null, num: c => c.pace ? c.pace[5] - c.pace[3] : 0, den: c => c.pace ? c.pace[5] : 0, color: "--accent" },
+  { key: "dcoal", name: "שינוי בקואליציה מ־2022 (נק׳)", v: c => c.r22 && c.r22.valid ? c.coalition / c.valid - c.r22.coalition / c.r22.valid : null, diff: true, bloc: "coalition", color: "--coalition" },
+  { key: "dopp", name: "שינוי באופוזיציה מ־2022 (נק׳)", v: c => c.r22 && c.r22.valid ? c.opposition / c.valid - c.r22.opposition / c.r22.valid : null, diff: true, bloc: "opposition", color: "--opposition" },
+];
+const state = { measure: "a65", outcome: "coalition", sector: "all", city: null };
+const M = () => MEASURES.find(m => m.key === state.measure), O = () => OUTCOMES.find(o => o.key === state.outcome);
+const fmtX = (m, v) => m.unit === "yrs" ? v.toFixed(1) : pct(v);
+const fmtY = (o, v) => o.diff ? signed(v * 100, 1) + " נק׳" : pct(v);
+
+function pool() {
+  return CITIES.filter(c => c.valid >= 500 && c.adults > 0 &&
+    (state.sector === "all" || (state.sector === "arab") === c.isArab));
+}
+
+// ---------- statistics ----------
+function erfc(x) {
+  const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+  const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+    t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+  return x >= 0 ? r : 2 - r;
+}
+const twoSidedP = z => erfc(Math.abs(z) / Math.SQRT2);
+function wPearson(x, y, w) {
+  const W = w.reduce((a, b) => a + b, 0);
+  const mx = x.reduce((s, v, i) => s + w[i] * v, 0) / W, my = y.reduce((s, v, i) => s + w[i] * v, 0) / W;
+  let sxy = 0, sxx = 0, syy = 0;
+  x.forEach((v, i) => { sxy += w[i] * (v - mx) * (y[i] - my); sxx += w[i] * (v - mx) ** 2; syy += w[i] * (y[i] - my) ** 2; });
+  const r = sxy / Math.sqrt(sxx * syy);
+  // weights are analytic (city size), so the test uses the number of cities, as the regression does
+  return { r, n: x.length, p: twoSidedP(Math.atanh(Math.min(0.999999, Math.abs(r))) * Math.sqrt(Math.max(1, x.length - 3))),
+           slope: sxy / sxx, mx, my };
+}
+function ranks(a) {
+  const idx = a.map((v, i) => [v, i]).sort((p, q) => p[0] - q[0]), r = new Array(a.length);
+  for (let i = 0; i < idx.length;) {
+    let j = i; while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j++;
+    for (let k = i; k <= j; k++) r[idx[k][1]] = (i + j) / 2 + 1;
+    i = j + 1;
+  }
+  return r;
+}
+function spearman(x, y) {
+  const ones = x.map(() => 1), r = wPearson(ranks(x), ranks(y), ones).r;
+  return { r, p: twoSidedP(Math.atanh(Math.min(0.999999, Math.abs(r))) * Math.sqrt(Math.max(1, x.length - 3))) };
+}
+function invert(A) {
+  const n = A.length, M = A.map((r, i) => [...r, ...r.map((_, j) => i === j ? 1 : 0)]);
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    if (Math.abs(M[p][c]) < 1e-12) return null;
+    [M[c], M[p]] = [M[p], M[c]];
+    const d = M[c][c]; for (let j = 0; j < 2 * n; j++) M[c][j] /= d;
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c]; for (let j = 0; j < 2 * n; j++) M[r][j] -= f * M[c][j]; }
+  }
+  return M.map(r => r.slice(n));
+}
+// weighted least squares; X rows include the intercept
+function wls(X, y, w) {
+  const n = X.length, k = X[0].length, wm = n / w.reduce((a, b) => a + b, 0);
+  const XtX = [...Array(k)].map(() => new Array(k).fill(0)), Xty = new Array(k).fill(0);
+  X.forEach((row, i) => { const wi = w[i] * wm; for (let a = 0; a < k; a++) { Xty[a] += wi * row[a] * y[i]; for (let b = 0; b < k; b++) XtX[a][b] += wi * row[a] * row[b]; } });
+  const inv = invert(XtX); if (!inv) return null;
+  const beta = inv.map(r => r.reduce((s, v, j) => s + v * Xty[j], 0));
+  let sse = 0, sst = 0; const ym = y.reduce((s, v, i) => s + w[i] * wm * v, 0) / n;
+  X.forEach((row, i) => { const e = y[i] - row.reduce((s, v, j) => s + v * beta[j], 0); sse += w[i] * wm * e * e; sst += w[i] * wm * (y[i] - ym) ** 2; });
+  const s2 = sse / (n - k);
+  const se = inv.map((r, j) => Math.sqrt(s2 * r[j]));
+  return { beta, se, p: beta.map((b, j) => twoSidedP(b / se[j])), r2: 1 - sse / sst, n };
+}
+
+// ---------- tooltip & svg helpers ----------
+const tip = document.getElementById("tip");
+function showTip(ev, title, rows) {
+  tip.innerHTML = `<div class="t">${title}</div>` + rows.map(([l, v, c]) =>
+    `<div class="r"><span>${c ? `<i class="sw" style="background:${c}"></i>` : ""}${l}</span><span>${v}</span></div>`).join("");
+  tip.style.display = "block";
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+}
+const hideTip = () => tip.style.display = "none";
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, x, y, s, anchor = "start", strong = false) {
+  const t = el("text", { x, y, "text-anchor": anchor }, parent); t.textContent = s;
+  if (strong) { t.style.fill = css("--ink"); t.style.fontWeight = 600; }
+  return t;
+}
+function niceStep(range) {
+  const raw = range / 5, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+function axisRange(vals, pad = 0.04) {
+  let lo = Math.min(...vals), hi = Math.max(...vals); const span = (hi - lo) || 1;
+  lo -= span * pad; hi += span * pad;
+  const st = niceStep(hi - lo);
+  return { lo: Math.floor(lo / st) * st, hi: Math.ceil(hi / st) * st, st };
+}
+const tickLabel = (v, kind) => kind === "yrs" ? v.toFixed(0) : kind === "pp" ? signed(v * 100, 0) : Math.round(v * 100) + "%";
+
+// ---------- quintiles ----------
+function quintiles(cs, m) {
+  const sorted = cs.map(c => ({ c, x: m.v(c) })).sort((a, b) => a.x - b.x);
+  const total = sorted.reduce((s, p) => s + p.c.adults, 0), groups = [[], [], [], [], []];
+  let acc = 0;
+  for (const p of sorted) { groups[Math.min(4, Math.floor(acc / total * 5))].push(p); acc += p.c.adults; }
+  return groups;
+}
+function groupValue(g, o) {
+  if (o.diff) {
+    const has = g.filter(p => p.c.r22 && p.c.r22.valid);
+    const v26 = has.reduce((s, p) => s + p.c[o.bloc], 0) / has.reduce((s, p) => s + p.c.valid, 0);
+    const v22 = has.reduce((s, p) => s + p.c.r22[o.bloc], 0) / has.reduce((s, p) => s + p.c.r22.valid, 0);
+    return v26 - v22;
+  }
+  return g.reduce((s, p) => s + o.num(p.c), 0) / g.reduce((s, p) => s + o.den(p.c), 0);
+}
+
+// ---------- charts ----------
+function drawScatter(pts, fit) {
+  const m = M(), o = O(), host = document.getElementById("scatter"); host.innerHTML = "";
+  document.getElementById("scTitle").textContent = `${m.short} מול ${o.name}`;
+  const sel = state.city != null ? CITIES[state.city] : null;
+  document.getElementById("scLegend").innerHTML =
+    (state.sector !== "arab" ? `<span><i class="sw" style="background:${css("--accent")};opacity:.5"></i>יישוב${state.sector === "all" ? " (לא ערבי)" : ""}</span>` : "") +
+    (state.sector !== "jewish" ? `<span><i class="sw" style="background:${css("--arab")};opacity:.6"></i>יישוב ערבי</span>` : "") +
+    `<span><i class="sw line" style="background:var(--ink)"></i>קו מגמה (משוקלל)</span>` +
+    (sel ? `<span><i class="sw" style="background:var(--ink)"></i>${sel.name}</span>` : "");
+  if (pts.length < 3) { host.innerHTML = `<div class="empty">מעט מדי יישובים</div>`; return; }
+  const W = host.clientWidth, H = Math.min(440, Math.max(300, W * 0.42)), mg = { l: 54, r: 14, t: 12, b: 38 };
+  const xr = axisRange(pts.map(p => p.x)), yr = axisRange(pts.map(p => p.y));
+  if (m.unit === "pct") { xr.lo = Math.max(0, xr.lo); xr.hi = Math.min(1, xr.hi); }
+  if (!o.diff) { yr.lo = Math.max(0, yr.lo); yr.hi = Math.min(1, yr.hi); }
+  const sx = v => mg.l + (v - xr.lo) / (xr.hi - xr.lo) * (W - mg.l - mg.r);
+  const sy = v => H - mg.b - (v - yr.lo) / (yr.hi - yr.lo) * (H - mg.t - mg.b);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  for (let v = yr.lo; v <= yr.hi + 1e-9; v += yr.st) {
+    el("line", { x1: mg.l, x2: W - mg.r, y1: sy(v), y2: sy(v), stroke: Math.abs(v) < 1e-9 && o.diff ? css("--axis") : css("--grid") }, svg);
+    txt(svg, mg.l - 6, sy(v) + 4, tickLabel(v, o.diff ? "pp" : "pct"), "end");
+  }
+  for (let v = xr.lo; v <= xr.hi + 1e-9; v += xr.st) {
+    el("line", { x1: sx(v), x2: sx(v), y1: mg.t, y2: H - mg.b, stroke: css("--grid") }, svg);
+    txt(svg, sx(v), H - mg.b + 16, tickLabel(v, m.unit === "yrs" ? "yrs" : "pct"), "middle");
+  }
+  txt(svg, (mg.l + W - mg.r) / 2, H - 4, m.name, "middle").setAttribute("direction", "rtl");
+  const maxA = Math.max(...pts.map(p => p.c.adults)), rad = p => 2.5 + 10 * Math.sqrt(p.c.adults / maxA);
+  pts.slice().sort((a, b) => b.c.adults - a.c.adults).forEach(p => {
+    if (p.c === sel) return;
+    el("circle", { cx: sx(p.x), cy: sy(p.y), r: rad(p), fill: css(p.c.isArab ? "--arab" : "--accent"), "fill-opacity": 0.5,
+      stroke: css("--surface"), "stroke-width": 1 }, svg);
+  });
+  // weighted trend line, clipped to the data range
+  const x0 = Math.min(...pts.map(p => p.x)), x1 = Math.max(...pts.map(p => p.x));
+  const f = x => fit.my + fit.slope * (x - fit.mx);
+  el("line", { x1: sx(x0), y1: sy(f(x0)), x2: sx(x1), y2: sy(f(x1)), stroke: css("--ink"), "stroke-width": 2 }, svg);
+  const sp = sel && pts.find(p => p.c === sel);
+  if (sp) {
+    el("circle", { cx: sx(sp.x), cy: sy(sp.y), r: Math.max(7, rad(sp)), fill: css("--ink"), stroke: css("--surface"), "stroke-width": 2 }, svg);
+    const t = txt(svg, sx(sp.x) + Math.max(7, rad(sp)) + 6, sy(sp.y) + 4, sp.c.name, "start", true);
+    if (sx(sp.x) > W * 0.8) { t.setAttribute("x", sx(sp.x) - Math.max(7, rad(sp)) - 6); t.setAttribute("text-anchor", "end"); }
+  }
+  const nearest = ev => {
+    const r = svg.getBoundingClientRect(), mx = (ev.clientX - r.left) * W / r.width, my = (ev.clientY - r.top) * H / r.height;
+    let best = null, bd = 400;
+    for (const p of pts) { const d = (sx(p.x) - mx) ** 2 + (sy(p.y) - my) ** 2; if (d < bd) { bd = d; best = p; } }
+    return best;
+  };
+  const hit = el("rect", { x: mg.l, y: mg.t, width: W - mg.l - mg.r, height: H - mg.t - mg.b, fill: "transparent" }, svg);
+  hit.addEventListener("mousemove", ev => {
+    const p = nearest(ev); if (!p) return hideTip();
+    showTip(ev, p.c.name, [[m.short, fmtX(m, p.x)], [o.name, fmtY(o, p.y)], ["מבוגרים (19+)", fmt(p.c.adults)], ["נפה", p.c.district]]);
+  });
+  hit.addEventListener("mouseleave", hideTip);
+  hit.addEventListener("click", ev => { const p = nearest(ev); if (p) setCity(CITIES.indexOf(p.c)); });
+  document.getElementById("scNote").textContent =
+    `${fmt(pts.length)} יישובים עם 500 קולות כשרים לפחות. גודל הנקודה לפי מספר המבוגרים. לחיצה על נקודה מדגישה את היישוב.`;
+}
+
+function drawQuint(groups) {
+  const m = M(), o = O(), host = document.getElementById("quint"); host.innerHTML = "";
+  document.getElementById("qTitle").textContent = `${o.name} לפי קבוצת גיל`;
+  const vals = groups.map(g => g.length ? groupValue(g, o) : null);
+  const W = host.clientWidth, H = 250, mg = { l: 48, r: 8, t: 22, b: 40 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  const good = vals.filter(v => v != null);
+  let lo = o.diff ? Math.min(0, ...good) : 0, hi = o.diff ? Math.max(0, ...good) : Math.max(...good);
+  const st = niceStep((hi - lo) * 1.15 || 0.01); lo = Math.floor(lo / st) * st; hi = Math.ceil(hi * 1.1 / st) * st;
+  const y = v => H - mg.b - (v - lo) / (hi - lo) * (H - mg.t - mg.b);
+  for (let v = lo; v <= hi + 1e-9; v += st) {
+    el("line", { x1: mg.l, x2: W - mg.r, y1: y(v), y2: y(v), stroke: Math.abs(v) < 1e-9 ? css("--axis") : css("--grid") }, svg);
+    txt(svg, mg.l - 6, y(v) + 4, tickLabel(v, o.diff ? "pp" : "pct"), "end");
+  }
+  const band = (W - mg.l - mg.r) / 5, bw = Math.min(54, band * 0.6), color = css(o.color);
+  groups.forEach((g, i) => {
+    if (!g.length) return;
+    const cx = mg.l + band * (i + 0.5), v = vals[i], y0 = y(0), y1 = y(v);
+    const top = Math.min(y0, y1), h = Math.abs(y0 - y1), r = Math.min(4, h), x0 = cx - bw / 2;
+    el("path", { d: v >= 0 ? `M${x0},${y0}V${y1 + r}q0,-${r} ${r},-${r}H${x0 + bw - r}q${r},0 ${r},${r}V${y0}Z`
+                           : `M${x0},${y0}V${y1 - r}q0,${r} ${r},${r}H${x0 + bw - r}q${r},0 ${r},-${r}V${y0}Z`, fill: color }, svg);
+    txt(svg, cx, v >= 0 ? top - 6 : top + h + 14, fmtY(o, v).replace(" נק׳", ""), "middle", true);
+    txt(svg, cx, H - 22, `קבוצה ${i + 1}`, "middle");
+    txt(svg, cx, H - 8, `${fmtX(m, g[0].x)}–${fmtX(m, g[g.length - 1].x)}`, "middle");
+    const hit = el("rect", { x: cx - band / 2, y: mg.t, width: band, height: H - mg.t - mg.b, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", ev => showTip(ev, `קבוצה ${i + 1} (${i === 0 ? "הצעירה" : i === 4 ? "המבוגרת" : "אמצע"})`, [
+      [o.name, fmtY(o, v)], [m.short, `${fmtX(m, g[0].x)} עד ${fmtX(m, g[g.length - 1].x)}`],
+      ["יישובים", fmt(g.length)], ["מבוגרים", fmt(g.reduce((s, p) => s + p.c.adults, 0))]]));
+    hit.addEventListener("mouseleave", hideTip);
+  });
+}
+
+function drawPace(groups) {
+  const host = document.getElementById("pace"); host.innerHTML = "";
+  const series = groups.map((g, i) => {
+    const has = g.filter(p => p.c.pace), fin = has.reduce((s, p) => s + p.c.pace[5], 0);
+    return { name: `קבוצה ${i + 1}`, color: css(`--q${i + 1}`), v: HOURS.map((_, k) => has.reduce((s, p) => s + p.c.pace[k], 0) / fin) };
+  }).filter(s => isFinite(s.v[0]));
+  document.getElementById("paceLegend").innerHTML = series.map((s, i) =>
+    `<span><i class="sw line" style="background:${s.color}"></i>${s.name}${i === 0 ? " (צעירה)" : i === series.length - 1 ? " (מבוגרת)" : ""}</span>`).join("");
+  const W = host.clientWidth, H = 250, mg = { l: 40, r: 56, t: 12, b: 26 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  const x = h => mg.l + (h - HOURS[0]) / (HOURS[HOURS.length - 1] - HOURS[0]) * (W - mg.l - mg.r);
+  const y = v => H - mg.b - v * (H - mg.t - mg.b);
+  for (let t = 0; t <= 4; t++) {
+    el("line", { x1: mg.l, x2: W - mg.r, y1: y(t / 4), y2: y(t / 4), stroke: t ? css("--grid") : css("--axis") }, svg);
+    txt(svg, mg.l - 6, y(t / 4) + 4, t * 25 + "%", "end");
+  }
+  HOURS.forEach(h => txt(svg, x(h), H - 8, pad(h), "middle"));
+  series.forEach(s => {
+    el("polyline", { points: s.v.map((v, k) => `${x(HOURS[k])},${y(v)}`).join(" "), fill: "none", stroke: s.color, "stroke-width": 2 }, svg);
+    s.v.forEach((v, k) => el("circle", { cx: x(HOURS[k]), cy: y(v), r: 3.5, fill: s.color, stroke: css("--surface"), "stroke-width": 1.5 }, svg));
+  });
+  // direct-label the youngest and oldest at 12:00, where the gap is widest
+  const k12 = HOURS.indexOf(12);
+  [series[0], series[series.length - 1]].forEach((s, j) => {
+    txt(svg, x(HOURS[k12]) + 8, y(s.v[k12]) + (j ? -6 : 14), pct(s.v[k12]), "start", true);
+  });
+  const cross = el("line", { y1: mg.t, y2: H - mg.b, stroke: css("--axis"), visibility: "hidden" }, svg);
+  const hit = el("rect", { x: mg.l - 10, y: mg.t, width: W - mg.l - mg.r + 20, height: H - mg.t - mg.b, fill: "transparent" }, svg);
+  hit.addEventListener("mousemove", ev => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width;
+    let k = 0; HOURS.forEach((h, j) => { if (Math.abs(x(h) - px) < Math.abs(x(HOURS[k]) - px)) k = j; });
+    cross.setAttribute("x1", x(HOURS[k])); cross.setAttribute("x2", x(HOURS[k])); cross.setAttribute("visibility", "visible");
+    showTip(ev, `עד ${pad(HOURS[k])}`, series.map(s => [s.name, pct(s.v[k]), s.color]));
+  });
+  hit.addEventListener("mouseleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+}
+
+function corrColor(r) {
+  if (!isFinite(r)) return "transparent";
+  const t = Math.max(-1, Math.min(1, r / 0.8));
+  return `color-mix(in oklab, var(${t >= 0 ? "--pos" : "--neg"}) ${Math.round(Math.abs(t) * 75)}%, var(--mid))`;
+}
+function drawCorr(cs) {
+  const w = cs.map(c => c.adults);
+  const rows = MEASURES.map(m => {
+    const xs = cs.map(m.v);
+    return `<tr><td>${m.short}</td>${OUTCOMES.map(o => {
+      const ok = cs.map((c, i) => [xs[i], o.v(c), w[i]]).filter(v => v[1] != null && isFinite(v[1]));
+      const r = ok.length > 3 ? wPearson(ok.map(v => v[0]), ok.map(v => v[1]), ok.map(v => v[2])).r : NaN;
+      const on = m.key === state.measure && o.key === state.outcome ? " on" : "";
+      return `<td class="c${on}" data-m="${m.key}" data-o="${o.key}" style="background:${corrColor(r)}">${isFinite(r) ? signed(r, 2) : "—"}</td>`;
+    }).join("")}</tr>`;
+  }).join("");
+  document.getElementById("corr").innerHTML =
+    `<thead><tr><th></th>${OUTCOMES.map(o => `<th class="n" style="text-align:center;white-space:normal;min-width:84px">${o.name}</th>`).join("")}</tr></thead><tbody>${rows}</tbody>`;
+}
+
+function drawAges(cs) {
+  const host = document.getElementById("ages"); host.innerHTML = "";
+  const sel = state.city != null ? CITIES[state.city] : null;
+  const nat = D.groups.map((_, i) => cs.reduce((s, c) => s + c.ages[i], 0) / cs.reduce((s, c) => s + c.total, 0));
+  const city = sel ? sel.ages.map(v => v / sel.total) : null;
+  document.getElementById("cityTitle").textContent = sel ? `הרכב הגילאים ב${sel.name}` : "הרכב הגילאים (בחרו יישוב)";
+  document.getElementById("cityLegend").textContent = sel ? sel.name : "היישוב";
+  const W = host.clientWidth, H = 230, mg = { l: 40, r: 8, t: 18, b: 26 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, host);
+  const hi = Math.ceil(Math.max(...nat, ...(city || [0])) * 1.12 * 10) / 10;
+  const y = v => H - mg.b - v / hi * (H - mg.t - mg.b);
+  for (let v = 0; v <= hi + 1e-9; v += 0.1) {
+    el("line", { x1: mg.l, x2: W - mg.r, y1: y(v), y2: y(v), stroke: v ? css("--grid") : css("--axis") }, svg);
+    txt(svg, mg.l - 6, y(v) + 4, Math.round(v * 100) + "%", "end");
+  }
+  const band = (W - mg.l - mg.r) / D.groups.length, bw = Math.min(26, band * 0.32);
+  D.groups.forEach((g, i) => {
+    const cx = mg.l + band * (i + 0.5);
+    const bar = (x0, v, filled) => {
+      const top = y(v), h = y(0) - top, r = Math.min(4, h);
+      el("path", { d: `M${x0},${y(0)}V${top + r}q0,-${r} ${r},-${r}H${x0 + bw - r}q${r},0 ${r},${r}V${y(0)}Z`,
+        fill: filled ? css("--accent") : "none", stroke: filled ? "none" : css("--ink-2"), "stroke-width": 2 }, svg);
+    };
+    if (city) { bar(cx + 1, nat[i], false); bar(cx - bw - 1, city[i], true); txt(svg, cx - bw / 2 - 1, y(city[i]) - 5, pct(city[i], 0), "middle", true); }
+    else { bar(cx - bw / 2, nat[i], false); txt(svg, cx, y(nat[i]) - 5, pct(nat[i], 0), "middle", true); }
+    txt(svg, cx, H - 8, g, "middle");
+    const hit = el("rect", { x: cx - band / 2, y: mg.t, width: band, height: H - mg.t - mg.b, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", ev => showTip(ev, `גיל ${g}`, [...(city ? [[sel.name, `${pct(city[i])} · ${fmt(sel.ages[i])}`, css("--accent")]] : []), ["כל היישובים בסינון", pct(nat[i])]]));
+    hit.addEventListener("mouseleave", hideTip);
+  });
+}
+
+function drawQTable(groups) {
+  const m = M(), cols = OUTCOMES.filter(o => !o.diff).slice(0, 5);
+  document.getElementById("qTable").innerHTML = `<thead><tr><th>קבוצה</th><th class="n">${m.short}</th><th class="n">יישובים</th>
+    ${cols.map(o => `<th class="n" style="white-space:normal">${o.name.replace(" (מתוך המצביעים)", "")}</th>`).join("")}</tr></thead><tbody>
+    ${groups.map((g, i) => g.length ? `<tr><td><i class="sw" style="background:var(--q${i + 1})"></i> ${i + 1}</td>
+      <td class="n">${ltr(fmtX(m, g[0].x) + "–" + fmtX(m, g[g.length - 1].x))}</td><td class="n">${fmt(g.length)}</td>
+      ${cols.map(o => `<td class="n">${pct(groupValue(g, o))}</td>`).join("")}</tr>` : "").join("")}</tbody>`;
+}
+
+// ---------- statistics panel & plain-language summary ----------
+function drawStats(pts, fit) {
+  const m = M(), o = O(), x = pts.map(p => p.x), y = pts.map(p => p.y), w = pts.map(p => p.c.adults);
+  const sp = spearman(x, y);
+  // regression: outcome ~ measure + children share + Arab locality + log size
+  const kids = MEASURES.find(v => v.key === "kids").v;
+  const useKids = m.key !== "kids", useArab = state.sector === "all";
+  const names = ["קבוע", m.short, ...(useKids ? ["אחוז ילדים"] : []), ...(useArab ? ["יישוב ערבי"] : []), "גודל היישוב (log)"];
+  const X = pts.map(p => [1, p.x, ...(useKids ? [kids(p.c)] : []), ...(useArab ? [p.c.isArab ? 1 : 0] : []), Math.log10(p.c.adults)]);
+  const reg = pts.length > names.length + 5 ? wls(X, y, w) : null;
+  const step = m.unit === "yrs" ? 1 : 0.1, stepTxt = m.unit === "yrs" ? "כל שנה נוספת בגיל הממוצע" : `כל 10 נקודות אחוז יותר של ${m.short}`;
+  const effect = b => signed(b * step * 100, 1) + " נק׳";
+  const strength = r => Math.abs(r) < 0.1 ? "אין קשר של ממש" : Math.abs(r) < 0.3 ? "קשר חלש" : Math.abs(r) < 0.5 ? "קשר בינוני" : "קשר חזק";
+  const dir = r => r > 0 ? "חיובי" : "שלילי";
+
+  const regRows = reg ? names.map((n, j) => j === 0 ? "" : `<tr><td>${n}</td><td class="n">${signed(reg.beta[j] * (j === 1 ? step : n === "אחוז ילדים" ? 0.1 : 1) * 100, 2)}</td>
+      <td class="n">${signed(reg.se[j] * (j === 1 ? step : n === "אחוז ילדים" ? 0.1 : 1) * 100, 2).replace(/[+−]/, "")}</td><td class="n">${fmtP(reg.p[j]).replace("p ", "")}</td></tr>`).join("") : "";
+  document.getElementById("stats").innerHTML = `
+    <section class="card stat">
+      <h3>מתאם</h3>
+      <p class="what">כמה חזק הקשר בין ${m.short} לבין ${o.name}? (−1 עד +1; 0 = אין קשר)</p>
+      <div class="tablewrap"><table><thead><tr><th>מבחן</th><th class="n">ערך</th><th class="n">p</th><th>פירוש</th></tr></thead><tbody>
+        <tr><td>פירסון (משוקלל)</td><td class="n"><b>${signed(fit.r, 2)}</b></td><td class="n">${fmtP(fit.p).replace("p ", "")}</td><td>${strength(fit.r)}${Math.abs(fit.r) >= 0.1 ? " " + dir(fit.r) : ""}</td></tr>
+        <tr><td>ספירמן (לפי דירוג, לא משוקלל)</td><td class="n"><b>${signed(sp.r, 2)}</b></td><td class="n">${fmtP(sp.p).replace("p ", "")}</td><td>${strength(sp.r)}${Math.abs(sp.r) >= 0.1 ? " " + dir(sp.r) : ""}</td></tr>
+        <tr><td>R² (פירסון בריבוע)</td><td class="n">${pct(fit.r * fit.r, 0)}</td><td></td><td>חלק מההבדלים בין היישובים ש"מוסבר" בגיל לבדו</td></tr>
+      </tbody></table></div>
+      <p class="what" style="margin-top:8px">${fmt(pts.length)} יישובים.</p>
+    </section>
+    <section class="card stat">
+      <h3>רגרסיה: הקשר לגיל בין יישובים דומים</h3>
+      <p class="what">ההשפעה של ${stepTxt} על ${o.name} (בנקודות אחוז), כשהמשתנים האחרים קבועים.${useKids ? "" : " (מדד הגיל הוא אחוז הילדים, לכן הוא לא נוסף שוב.)"}</p>
+      ${reg ? `<div class="tablewrap"><table><thead><tr><th>משתנה</th><th class="n">מקדם</th><th class="n">טעות תקן</th><th class="n">p</th></tr></thead><tbody>${regRows}</tbody></table></div>
+      <p class="what" style="margin-top:8px">${useKids ? "אחוז ילדים: לכל 10 נק׳. " : ""}${useArab ? "יישוב ערבי: ההפרש מיישוב לא ערבי. " : ""}גודל: לכל פי 10 יותר מבוגרים. R² של המודל: ${pct(reg.r2, 0)}.</p>`
+      : `<p class="empty">מעט מדי יישובים לרגרסיה</p>`}
+    </section>`;
+
+  // summary
+  const groups = quintiles(pts.map(p => p.c), m), g1 = groupValue(groups[0], o), g5 = groupValue(groups[4], o);
+  const where = { all: "בכל היישובים", jewish: "ביישובים שאינם ערביים", arab: "ביישובים הערביים" }[state.sector];
+  // for "young" measures, quintile 5 means more young people
+  const q5label = m.key === "a19" || m.key === "kids" ? `עם הכי הרבה ${m.short}` : "המבוגרים ביותר";
+  const q1label = m.key === "a19" || m.key === "kids" ? `עם הכי מעט ${m.short}` : "הצעירים ביותר";
+  const b = reg ? reg.beta[1] : null, bp = reg ? reg.p[1] : 1;
+  const sameDir = reg && Math.sign(b) === Math.sign(fit.r);
+  let regLine = "";
+  if (reg) regLine = bp >= 0.05
+    ? `<p>אבל <b>כשמשווים בין יישובים דומים</b> (באותו אחוז ילדים${useArab ? ", אותו סוג יישוב" : ""} ואותו גודל), הקשר לגיל <b>לא מובהק</b>: סביר שהוא נובע מההבדלים האחרים בין היישובים ולא מהגיל עצמו.</p>`
+    : `<p><b>גם כשמשווים בין יישובים דומים</b> (באותו אחוז ילדים${useArab ? ", אותו סוג יישוב" : ""} ואותו גודל), ${stepTxt} ${m.unit === "yrs" ? "קשורה" : "קשורות"} ל־<b>${effect(b)}</b> ב${o.name}${sameDir ? "" : " – כלומר בכיוון ההפוך מהמתאם הפשוט, כי חלק מהקשר הפשוט נבע מהמשתנים האחרים"}.</p>`;
+  document.getElementById("summary").innerHTML = `<section class="card summary">
+    <h3>השורה התחתונה</h3>
+    <p>${where}, יש <b>${strength(fit.r)}${Math.abs(fit.r) >= 0.1 ? " " + dir(fit.r) : ""}</b> בין ${m.short} לבין ${o.name} (r = ${signed(fit.r, 2)}).
+      ביישובים ${q5label} (קבוצה 5) ${o.name} היה <b>${fmtY(o, g5)}</b>, לעומת <b>${fmtY(o, g1)}</b> ביישובים ${q1label} (קבוצה 1).</p>
+    ${regLine}
+    <ul>
+      <li><b>מתאם (r)</b> נע בין −1 ל־+1. קרוב ל־0 = אין קשר; מעל 0.3 בערך מוחלט = קשר בינוני; מעל 0.5 = חזק. סימן שלילי פירושו שכשאחד עולה, השני יורד.</li>
+      <li><b>p</b> הוא הסיכוי לקבל קשר כזה במקרה. מתחת ל־0.05 נחשב "מובהק", כלומר כנראה לא מקרי.</li>
+      <li><b>רגרסיה</b> בודקת אם הקשר נשאר כשמשווים בין יישובים דומים. זה חשוב כי למשל ביישובים ערביים וחרדיים יש יותר צעירים, ובלי השוואה כזו הגיל ייראה כאילו הוא "מסביר" הבדלים שנובעים בעצם מהמגזר.</li>
+      <li>הניתוח הוא ברמת יישוב: הוא לא אומר איך הצביעו אנשים בגיל מסוים, רק איך הצביעו יישובים עם הרכב גילאים מסוים.</li>
+    </ul></section>`;
+}
+
+// ---------- render ----------
+function render() {
+  const m = M(), o = O(), cs = pool();
+  const pts = cs.map(c => ({ c, x: m.v(c), y: o.v(c) })).filter(p => p.y != null && isFinite(p.y) && isFinite(p.x));
+  document.getElementById("selection").innerHTML = state.city != null ? `מודגש: <b>${CITIES[state.city].name}</b>` : "";
+  if (pts.length < 10) {
+    for (const id of ["scatter", "quint", "pace", "stats", "summary"]) document.getElementById(id).innerHTML = `<div class="empty">מעט מדי יישובים בסינון</div>`;
+    return;
+  }
+  const fit = wPearson(pts.map(p => p.x), pts.map(p => p.y), pts.map(p => p.c.adults));
+  const groups = quintiles(pts.map(p => p.c), m);
+  drawScatter(pts, fit); drawQuint(groups); drawPace(groups); drawCorr(cs); drawAges(cs); drawQTable(groups); drawStats(pts, fit);
+}
+
+// ---------- controls ----------
+const mSel = document.getElementById("measure"), oSel = document.getElementById("outcome"), cityInput = document.getElementById("city");
+mSel.innerHTML = MEASURES.map(m => `<option value="${m.key}">${m.name}</option>`).join("");
+oSel.innerHTML = OUTCOMES.map(o => `<option value="${o.key}">${o.name}</option>`).join("");
+document.getElementById("cities").innerHTML = CITIES.filter(c => c.valid >= 500).map(c => `<option value="${c.name}">`).join("");
+mSel.addEventListener("change", () => { state.measure = mSel.value; render(); });
+oSel.addEventListener("change", () => { state.outcome = oSel.value; render(); });
+document.getElementById("sector").addEventListener("change", e => { state.sector = e.target.value; render(); });
+function setCity(ci) { state.city = ci; cityInput.value = ci == null ? "" : CITIES[ci].name; render(); }
+cityInput.addEventListener("change", () => {
+  const v = cityInput.value.trim(), ci = CITIES.findIndex(c => c.name === v);
+  if (!v) setCity(null); else if (ci >= 0) setCity(ci);
+});
+cityInput.addEventListener("input", () => { if (!cityInput.value) setCity(null); });
+document.getElementById("corr").addEventListener("click", e => {
+  const td = e.target.closest("td[data-m]"); if (!td) return;
+  state.measure = mSel.value = td.dataset.m; state.outcome = oSel.value = td.dataset.o; render();
+});
+document.getElementById("theme").addEventListener("click", () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("theme", root.dataset.theme); } catch (e) {}
+  render();
+});
+try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(render, 150); });
+render();
+</script>
+</body>
+</html>
